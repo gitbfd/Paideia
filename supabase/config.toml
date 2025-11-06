@@ -1,0 +1,42 @@
+## supabase/config.toml
+## https://supabase.com/docs/guides/local-development/cli/config
+## -------------------------------------------------------------
+
+# CONFIG:
+
+#project_id = "your-project-id"
+#[api]
+#enabled = true
+#port = 54321
+#schemas = ["public"]#
+
+#[db]
+#major_version = 15#
+
+#[studio]
+#port = 54323
+
+
+#CLI Commands
+# `npx supabase db push`
+#	Applies your local migrations to your linked Supabase project
+#		Anytime you’ve edited .sql files and want to sync
+
+# `npx supabase db reset`
+#	Drops & recreates the local dev database using the migrations
+#		When you want a “from-zero” rebuild locally
+
+# `npx supabase db dump`
+#	Exports your current remote schema into a file (like 00_build.sql)
+#		When you want to capture your live schema
+
+## -----------------
+
+## 1. Pull your current schema (optional if you already have 00_build.sql)
+# npx supabase db dump -f supabase/migrations/00_build.sql
+
+## 2. (edit or add policies, etc.)
+## e.g., add 01_policies.sql
+
+## 3. Push those changes to your Supabase project
+# npx supabase db push
