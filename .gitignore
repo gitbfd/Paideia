@@ -13,6 +13,12 @@
 # testing
 /coverage
 
+# WRKNG
+*.zip
+# NOTE: will exclude all underscore prefix dirs/files
+/_*
+
+
 # next.js
 /.next/
 /out/
