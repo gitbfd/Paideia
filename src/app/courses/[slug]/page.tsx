@@ -3,13 +3,14 @@
 import { createClientServer } from '@/lib/supabase-server';
 import AskCourse from '@/components/AskCourse';
 
-export default async function CourseDetail({ params }: { params: { slug: string } }) {
+export default async function CourseDetail({ params }: { params: Promise<{ slug: string }> }) {
   const supabase = await createClientServer();
+  const { slug } = await params;
 
   const { data: course, error } = await supabase
     .from('courses')
     .select('id, title, description, status, published_at')
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .single();
 
   if (error) return <div className="p-6 text-red-600">Error: {error.message}</div>;

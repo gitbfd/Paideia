@@ -5,15 +5,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClientForRoute } from '@/lib/supabase-route';
 import { embedText } from '@/lib/embeddings';
 
-// POST /api/courses/:id/ask  body: { question: string, k?: number }
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+// POST /api/courses/:slug/ask  body: { question: string, k?: number }
+export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { supabase, applyCookies } = createClientForRoute(req);
+  const { slug } = await params;
   const body = await req.json().catch(() => ({}));
   const question: string = body?.question || '';
   const k = Math.min(Math.max(Number(body?.k || 6), 1), 20);
 
   if (!question) {
     return applyCookies(NextResponse.json({ error: 'Missing question' }, { status: 400 }));
+  }
+
+  // First, get the course ID from slug
+  const { data: course, error: courseError } = await supabase
+    .from('courses')
+    .select('id')
+    .eq('slug', slug)
+    .single();
+
+  if (courseError || !course) {
+    return applyCookies(NextResponse.json({ error: 'Course not found' }, { status: 404 }));
   }
 
   // 1) embed the question (⚠️ implement in src/lib/embeddings.ts)
@@ -26,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // 2) vector search scoped to course_id via RPC
   const { data, error } = await supabase.rpc('match_document_chunks', {
-    p_course_id: params.id,
+    p_course_id: course.id,
     p_query_embedding: qEmbedding,
     p_match_count: k,
   });

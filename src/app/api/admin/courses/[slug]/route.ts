@@ -1,14 +1,20 @@
-//api/admin/courses/[id]/publish/route.ts
+// api/admin/courses/[slug]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClientForRoute } from '@/lib/supabase-route';
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { supabase, applyCookies } = createClientForRoute(req);
+  const { slug } = await params;
+  const updates = await req.json().catch(() => ({}));
 
   const { data, error } = await supabase
     .from('courses')
-    .update({ status: 'published', published_at: new Date().toISOString() })
-    .eq('id', params.id)
+    .update({
+      title: updates.title,
+      description: updates.description,
+      status: updates.status,
+    })
+    .eq('slug', slug)
     .select()
     .single();
 

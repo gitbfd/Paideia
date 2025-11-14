@@ -9,30 +9,37 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const { pathname } = req.nextUrl;
 
-  // let users reach the admin login page
+  // Let users reach the admin login page
   if (pathname === '/admin/login') return res;
 
   const cookieMethods: CookieMethodsServer = {
+    get(name) {
+      return req.cookies.get(name)?.value;
+    },
     getAll() {
       const all = req.cookies.getAll();
       return all?.map((c) => ({ name: c.name, value: c.value })) ?? [];
+    },
+    set(name, value, options) {
+      res.cookies.set({ name, value, ...options });
     },
     setAll(cookies) {
       cookies.forEach((c) => {
         res.cookies.set({ name: c.name, value: c.value, ...c.options });
       });
     },
+    remove(name, options) {
+      res.cookies.set({ name, value: '', ...options, maxAge: 0 });
+    },
   };
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: cookieMethods,
-    }
+    { cookies: cookieMethods }
   );
 
-  // ensures fresh session cookies for this request
+  // ensure fresh session for this request
   await supabase.auth.getSession();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -44,7 +51,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(login);
     }
 
-    const { data: isAdmin } = await supabase.rpc('is_admin'); // zero-arg version you just verified
+    const { data: isAdmin } = await supabase.rpc('is_admin');
     if (!isAdmin) {
       return NextResponse.redirect(new URL('/student/profile', req.url));
     }

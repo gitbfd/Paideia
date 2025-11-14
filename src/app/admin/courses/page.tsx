@@ -1,5 +1,4 @@
 // src/app/admin/courses/page.tsx
-
 import Link from 'next/link';
 import { createClientServer } from '@/lib/supabase-server';
 
@@ -17,16 +16,17 @@ export default async function AdminCourses() {
     <main className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Courses (Admin)</h1>
-        <Link className="text-blue-600 hover:underline" href="/admin/courses/new">New Course</Link>
+        <Link className="text-blue-600 hover:underline" href="/admin/courses/new">New</Link>
       </div>
+
       <ul className="space-y-2">
         {courses?.map((c) => (
           <li key={c.id} className="border p-4 rounded flex items-center justify-between">
             <div>
               <div className="font-medium">{c.title}</div>
-              <div className="text-sm text-gray-600">Status: {c.status}</div>
+              <div className="text-sm opacity-70">Status: {c.status}</div>
             </div>
-            <Link className="text-blue-600 hover:underline" href={`/admin/courses/${c.id}/edit`}>Edit</Link>
+            <Link className="text-blue-600 hover:underline" href={`/admin/courses/${c.slug}/edit`}>Edit</Link>
           </li>
         ))}
       </ul>

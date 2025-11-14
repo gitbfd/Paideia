@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 export async function createClientServer() {
-  const cookieStore = await cookies(); // must be called inside a server context
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,8 +19,9 @@ export async function createClientServer() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // If setAll is invoked in a Server Component render, ignore –
-            // sessions will be refreshed by middleware.
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
           }
         },
       },

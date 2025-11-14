@@ -1,13 +1,13 @@
-// src/components/CourseUploader.tsx
+// src/components/TextUploader.tsx
 
 'use client';
 
 import { useRef, useState } from 'react';
 import { createClientBrowser } from '@/lib/supabase-client';
 
-type Props = { courseId: string; courseSlug: string };
+type Props = { textId: string };
 
-export default function CourseUploader({ courseId, courseSlug }: Props) {
+export default function TextUploader({ textId }: Props) {
   const supabase = createClientBrowser();
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string>('');
@@ -63,7 +63,7 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
       setProgress(10);
 
       // 1) Upload to Storage (private bucket)
-      const path = `${courseId}/${Date.now()}-${file.name}`;
+      const path = `texts/${textId}/${Date.now()}-${file.name}`;
       const { error: upErr } = await supabase.storage.from('course-docs').upload(path, file);
       if (upErr) {
         setStatus(`Upload failed: ${upErr.message}`);
@@ -75,9 +75,9 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
       setStatus('Registering document…');
       setProgress(40);
 
-      // 2) Detect source type and register in DB (using slug)
+      // 2) Detect source type and register in DB
       const sourceType = detectSourceType(file.name, file.type);
-      const resReg = await fetch(`/api/admin/courses/${courseSlug}/documents`, {
+      const resReg = await fetch(`/api/admin/texts/${textId}/documents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -99,9 +99,9 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
       setStatus('Ingesting (extract → clean → chunk → embed)…');
       setProgress(75);
 
-      // 3) Trigger ingestion (using slug)
+      // 3) Trigger ingestion
       const resIng = await fetch(
-        `/api/admin/courses/${courseSlug}/documents/${reg.document.id}/ingest`,
+        `/api/admin/texts/${textId}/documents/${reg.document.id}/ingest`,
         { method: 'POST' }
       );
       
@@ -152,7 +152,7 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
 
   return (
     <div className="border rounded p-4 space-y-3">
-      <div className="font-medium">Upload document to this course</div>
+      <div className="font-medium">Upload document to this text</div>
       <input 
         ref={fileRef} 
         type="file" 
@@ -182,3 +182,4 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
     </div>
   );
 }
+
