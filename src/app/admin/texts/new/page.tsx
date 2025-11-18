@@ -17,7 +17,7 @@ export default function NewTextPage() {
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0);
 
-    const res = await fetch('/api/admin/texts', {
+    const res = await fetch('/admin/texts/api', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

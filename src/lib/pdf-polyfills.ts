@@ -43,3 +43,19 @@
     };
   }
 })(); // Immediately invoke to set up polyfills
+
+// Configure pdfjs worker for server-side usage
+// This must be done before pdf-parse imports pdfjs
+export async function configurePdfJsWorker() {
+  try {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    if (pdfjs.GlobalWorkerOptions) {
+      // For server-side, we need to disable the worker
+      // Setting to a non-empty string that won't be used
+      pdfjs.GlobalWorkerOptions.workerSrc = 'data:application/javascript,';
+    }
+  } catch (err) {
+    // If pdfjs isn't available yet, that's okay - we'll configure it later
+    console.warn('[PDF-POLYFILLS] Could not configure pdfjs worker:', err);
+  }
+}

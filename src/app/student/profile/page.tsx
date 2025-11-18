@@ -2,6 +2,11 @@
 import { createClientServer } from '@/lib/supabase';
 import TopRightActions from './TopRightActions';
 import StudentProfileForm from './StudentProfileForm';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Student Profile',
+};
 
 export default async function ProfilePage() {
   const supabase = await createClientServer();

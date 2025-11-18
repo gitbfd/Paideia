@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { createClientBrowser } from '@/lib/supabase-client';
 
 type Profile = {
@@ -19,6 +20,7 @@ type Profile = {
 
 type Course = {
   id: string | number;
+  slug: string;
   title: string;
   description?: string | null;
   created_at?: string | null;
@@ -134,14 +136,32 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
     async function loadCourses() {
       setLoadingCourses(true);
       try {
-        const { data } = await supabase
-          .from('courses')
-          .select('id,title,description,created_at') // narrow selection is fine
+        // First, get enrollment course IDs
+        const { data: enrollments, error: enrollmentsError } = await supabase
+          .from('course_enrollments')
+          .select('course_id')
           .eq('user_id', userId)
+          .throwOnError();
+
+        if (enrollmentsError) throw enrollmentsError;
+
+        if (!enrollments || enrollments.length === 0) {
+          if (active) setCourses([]);
+          return;
+        }
+
+        // Then, get the actual courses
+        const courseIds = enrollments.map(e => e.course_id);
+        const { data: coursesData, error: coursesError } = await supabase
+          .from('courses')
+          .select('id, slug, title, description, created_at')
+          .in('id', courseIds)
           .order('created_at', { ascending: false })
-          .throwOnError(); // <-- forces a real Error on 4xx/5xx/RLS
-    
-        if (active) setCourses((data as Course[]) ?? []);
+          .throwOnError();
+
+        if (coursesError) throw coursesError;
+
+        if (active) setCourses((coursesData as Course[]) ?? []);
       } catch (err: any) {
         // You will now see a real, useful message
         console.error('courses.select threw:', {
@@ -378,13 +398,14 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
               <p className="text-gray-500 text-sm">Loading courses…</p>
             ) : courses.length > 0 ? (
               courses.map((course, idx) => (
-                <div
+                <Link
                   key={String(course.id ?? idx)}
-                  className="border rounded-lg p-3 hover:bg-gray-50 transition-colors"
+                  href={`/courses/${course.slug}`}
+                  className="block border rounded-lg p-3 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   <p className="font-medium text-gray-900">{course.title}</p>
                   <p className="text-sm text-gray-500">{course.description}</p>
-                </div>
+                </Link>
               ))
             ) : (
               <p className="text-gray-500 text-sm">No courses underway.</p>

@@ -37,7 +37,7 @@ export default function TextEditForm({ text }: Props) {
         .map(tag => tag.trim())
         .filter(tag => tag.length > 0);
 
-      const res = await fetch(`/api/admin/texts/${text.id}`, {
+      const res = await fetch(`/admin/texts/${text.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

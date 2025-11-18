@@ -1,12 +1,30 @@
 // src/lib/text-cleaner.ts
+// CONFIG text processing here
+
+import { textProcessingConfig } from './text-processing-config';
+
 export function normalizeText(txt: string): string {
-  return txt
-    .replace(/(\w)-\n(\w)/g, '$1$2')     // de-hyphenate line-wraps
-    .replace(/[^\S\r\n]+\n/g, '\n')      // trim spaces before newline
-    .replace(/\n{3,}/g, '\n\n')          // collapse blank lines
-    .replace(/[^\S\r\n]{2,}/g, ' ')      // collapse spaces
-    .replace(/\ufb01/g, 'fi')            // ligatures
-    .replace(/\ufb02/g, 'fl')
-    .replace(/([^\n])\n(?!\n)/g, '$1 ')  // unwrap single linebreaks within paragraphs
-    .trim();
+  const config = textProcessingConfig.normalization;
+  let result = txt;
+
+  if (config.dehyphenateLineWraps) {
+    result = result.replace(/(\w)-\n(\w)/g, '$1$2');
+  }
+  if (config.trimSpacesBeforeNewline) {
+    result = result.replace(/[^\S\r\n]+\n/g, '\n\n');
+  }
+  if (config.collapseBlankLines) {
+    result = result.replace(/\n{3,}/g, '\n');
+  }
+  if (config.collapseSpaces) {
+    result = result.replace(/[^\S\r\n]{2,}/g, ' ');
+  }
+  if (config.fixLigatures) {
+    result = result.replace(/\ufb01/g, 'fi').replace(/\ufb02/g, 'fl');
+  }
+  if (config.unwrapSingleLinebreaks) {
+    result = result.replace(/([^\n])\n(?!\n)/g, '$1 ');
+  }
+
+  return result.trim();
 }

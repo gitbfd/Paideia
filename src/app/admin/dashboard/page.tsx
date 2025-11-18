@@ -1,4 +1,10 @@
-// src/app/admin/page.tsx (Server Component)
+// src/app/admin/dashboard/page.tsx (Server Component)
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Admin dashboard',
+};
+
 export default function AdminHome() {
   return (
     <div className="p-8">

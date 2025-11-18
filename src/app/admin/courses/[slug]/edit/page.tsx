@@ -1,8 +1,24 @@
 // src/app/admin/courses/[slug]/edit/page.tsx
 import Link from 'next/link';
 import { createClientServer } from '@/lib/supabase-server';
-import CourseUploader from '@/components/CourseUploader';
 import CourseEditForm from '@/components/CourseEditForm';
+import AddTextSection from '@/components/AddTextSection';
+import type { Metadata } from 'next';
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const supabase = await createClientServer();
+  const { slug } = await params;
+  
+  const { data: course } = await supabase
+    .from('courses')
+    .select('title')
+    .eq('slug', slug)
+    .single();
+
+  return {
+    title: course ? `Edit: ${course.title}` : 'Edit Course',
+  };
+}
 
 export default async function EditCourse({ params }: { params: Promise<{ slug: string }> }) {
   const supabase = await createClientServer();
@@ -31,8 +47,7 @@ export default async function EditCourse({ params }: { params: Promise<{ slug: s
       <CourseEditForm course={course} />
 
       <div className="border-t pt-6">
-        <h2 className="text-lg font-semibold mb-4">Upload Documents</h2>
-        <CourseUploader courseId={course.id} courseSlug={course.slug} />
+        <AddTextSection courseSlug={course.slug} />
       </div>
     </main>
   );

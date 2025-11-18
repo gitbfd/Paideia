@@ -1,5 +1,10 @@
 // src/app/signup/page.tsx (Server Component)
 import SignupForm from './SignupForm';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Create your student account',
+};
 
 export default function Page() {
   return (

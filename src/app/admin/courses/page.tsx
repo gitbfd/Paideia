@@ -1,6 +1,11 @@
 // src/app/admin/courses/page.tsx
 import Link from 'next/link';
 import { createClientServer } from '@/lib/supabase-server';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Courses (Admin)',
+};
 
 export default async function AdminCourses() {
   const supabase = await createClientServer();

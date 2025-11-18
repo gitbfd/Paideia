@@ -25,7 +25,7 @@ export default function CourseEditForm({ course }: Props) {
     setMessage(null);
 
     try {
-      const res = await fetch(`/api/admin/courses/${course.slug}`, {
+      const res = await fetch(`/admin/courses/${course.slug}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description, status }),

@@ -1,5 +1,10 @@
 // src/app/admin/login/page.tsx
 import AdminLoginForm from './AdminLoginForm';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Admin login',
+};
 
 export default function Page() {
   return (

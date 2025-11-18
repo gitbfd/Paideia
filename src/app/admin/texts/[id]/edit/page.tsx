@@ -3,6 +3,25 @@ import Link from 'next/link';
 import { createClientServer } from '@/lib/supabase-server';
 import TextUploader from '@/components/TextUploader';
 import TextEditForm from '@/components/TextEditForm';
+import TextPreview from '@/components/TextPreview';
+import DeleteDocumentButton from '@/components/DeleteDocumentButton';
+import DocumentLineCount from '@/components/DocumentLineCount';
+import type { Metadata } from 'next';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const supabase = await createClientServer();
+  const { id } = await params;
+  
+  const { data: text } = await supabase
+    .from('texts')
+    .select('title')
+    .eq('id', id)
+    .single();
+
+  return {
+    title: text ? `Edit: ${text.title}` : 'Edit Text',
+  };
+}
 
 export default async function EditText({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClientServer();
@@ -45,16 +64,40 @@ export default async function EditText({ params }: { params: Promise<{ id: strin
       {documents && documents.length > 0 && (
         <div className="border-t pt-6">
           <h2 className="text-lg font-semibold mb-4">Uploaded Documents</h2>
-          <ul className="space-y-2">
+          <ul className="space-y-4">
             {documents.map((doc) => (
-              <li key={doc.id} className="border p-3 rounded flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{doc.meta?.filename || 'Unknown file'}</div>
-                  <div className="text-sm opacity-70">
-                    Type: {doc.source_type} • Status: {doc.ingest_status}
-                    {doc.created_at && ` • Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`}
+              <li key={doc.id} className="border p-3 rounded">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex-1">
+                    <div className="font-medium">{doc.meta?.filename || 'Unknown file'}</div>
+                    <div className="text-sm opacity-70">
+                      Type: {doc.source_type} • Status: {doc.ingest_status}
+                      {doc.created_at && ` • Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`}
+                      <DocumentLineCount
+                        textId={id}
+                        documentId={doc.id}
+                        ingestStatus={doc.ingest_status}
+                      />
+                    </div>
                   </div>
+                  <DeleteDocumentButton
+                    textId={id}
+                    documentId={doc.id}
+                    filename={doc.meta?.filename}
+                  />
                 </div>
+                {doc.ingest_status === 'embedded' && (
+                  <TextPreview
+                    textId={id}
+                    documentId={doc.id}
+                    filename={doc.meta?.filename}
+                  />
+                )}
+                {doc.ingest_status !== 'embedded' && (
+                  <div className="text-sm text-gray-500 mt-2">
+                    Preview available after ingestion is complete
+                  </div>
+                )}
               </li>
             ))}
           </ul>

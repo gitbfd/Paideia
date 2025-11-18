@@ -44,6 +44,23 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
     return mimeMap[sourceType] || 'application/octet-stream';
   }
 
+  // Sanitize filename for Supabase Storage (remove invalid characters)
+  function sanitizeFilename(filename: string): string {
+    // Extract extension
+    const lastDot = filename.lastIndexOf('.');
+    const name = lastDot > 0 ? filename.substring(0, lastDot) : filename;
+    const ext = lastDot > 0 ? filename.substring(lastDot) : '';
+    
+    // Replace invalid characters with hyphens
+    // Supabase Storage allows: alphanumeric, hyphens, underscores, periods, forward slashes
+    const sanitized = name
+      .replace(/[^a-zA-Z0-9._-]/g, '-') // Replace invalid chars with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+    
+    return sanitized + ext;
+  }
+
   async function handleUpload() {
     console.log('Upload button clicked');
     const file = fileRef.current?.files?.[0];
@@ -63,7 +80,9 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
       setProgress(10);
 
       // 1) Upload to Storage (private bucket)
-      const path = `${courseId}/${Date.now()}-${file.name}`;
+      // Sanitize filename for storage (keep original in meta for display)
+      const sanitizedFilename = sanitizeFilename(file.name);
+      const path = `${courseId}/${Date.now()}-${sanitizedFilename}`;
       const { error: upErr } = await supabase.storage.from('course-docs').upload(path, file);
       if (upErr) {
         setStatus(`Upload failed: ${upErr.message}`);
@@ -77,7 +96,7 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
 
       // 2) Detect source type and register in DB (using slug)
       const sourceType = detectSourceType(file.name, file.type);
-      const resReg = await fetch(`/api/admin/courses/${courseSlug}/documents`, {
+      const resReg = await fetch(`/admin/courses/${courseSlug}/documents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -101,7 +120,7 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
 
       // 3) Trigger ingestion (using slug)
       const resIng = await fetch(
-        `/api/admin/courses/${courseSlug}/documents/${reg.document.id}/ingest`,
+        `/admin/courses/${courseSlug}/documents/${reg.document.id}/ingest`,
         { method: 'POST' }
       );
       

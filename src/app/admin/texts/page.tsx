@@ -1,6 +1,11 @@
 // src/app/admin/texts/page.tsx
 import Link from 'next/link';
 import { createClientServer } from '@/lib/supabase-server';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Texts (Admin)',
+};
 
 export default async function AdminTexts() {
   const supabase = await createClientServer();

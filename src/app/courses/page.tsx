@@ -2,6 +2,11 @@
 // List published courses
 import Link from 'next/link';
 import { createClientServer } from '@/lib/supabase-server';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Courses',
+};
 
 export default async function CoursesPage() {
   const supabase = await createClientServer();

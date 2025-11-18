@@ -8,7 +8,7 @@ export default function NewCoursePage() {
   const [description, setDescription] = useState('');
 
   async function createCourse() {
-    const res = await fetch('/api/admin/courses', {
+    const res = await fetch('/admin/courses/api', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, description }),

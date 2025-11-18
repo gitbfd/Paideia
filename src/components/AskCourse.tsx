@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 
-export default function AskCourse({ courseId }: { courseId: string }) {
+export default function AskCourse({ courseSlug }: { courseSlug: string }) {
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [matches, setMatches] = useState<{ id: string; content: string; similarity: number }[]>([]);
@@ -14,7 +14,7 @@ export default function AskCourse({ courseId }: { courseId: string }) {
     setError(null);
     setMatches([]);
     try {
-      const res = await fetch(`/api/courses/${courseId}/ask`, {
+      const res = await fetch(`/courses/${courseSlug}/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q, k: 6 }),
