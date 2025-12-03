@@ -1,7 +1,7 @@
 // src/app/reset-password/page.tsx
 'use client';
 import { useState } from 'react';
-import { createClientBrowser } from '@/lib/supabase-client';
+import { createClientBrowser } from '@/lib/supabase';
 
 export default function ResetPassword() {
   const supabase = createClientBrowser();

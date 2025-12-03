@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClientBrowser } from '@/lib/supabase-client';
+import { createClientBrowser } from '@/lib/supabase';
 
 export default function LoginForm() {
   const supabase = createClientBrowser();

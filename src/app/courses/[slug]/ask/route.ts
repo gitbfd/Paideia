@@ -2,8 +2,8 @@
 // This endpoint does not call an LLM. It returns the best chunks so you can render them or send them to your model of choice. If you want, we can add a /complete endpoint that calls your LLM.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientForRoute } from '@/lib/supabase-route';
-import { embedText } from '@/lib/embeddings';
+import { createClientForRoute } from '@/lib/supabase/route';
+import { embedText } from '@/lib/rag';
 
 // POST /courses/:slug/ask  body: { question: string, k?: number }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -41,11 +41,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return applyCookies(NextResponse.json({ error: e?.message || 'Embedding error' }, { status: 500 }));
   }
 
-  // 2) vector search scoped to course_id via RPC
-  const { data, error } = await supabase.rpc('match_document_chunks', {
+  // 2) vector search scoped to course_id via RPC (character-based approach)
+  // Use the new character-based function for text-based courses
+  const { data, error } = await supabase.rpc('match_text_chunks_for_course', {
     p_course_id: course.id,
     p_query_embedding: qEmbedding,
     p_match_count: k,
+    p_max_order_index: null, // No limit - include all sections in course
   });
 
   if (error) {

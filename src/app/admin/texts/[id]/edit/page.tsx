@@ -1,11 +1,13 @@
 // src/app/admin/texts/[id]/edit/page.tsx
 import Link from 'next/link';
-import { createClientServer } from '@/lib/supabase-server';
+import { createClientServer } from '@/lib/supabase/server';
 import TextUploader from '@/components/TextUploader';
 import TextEditForm from '@/components/TextEditForm';
-import TextPreview from '@/components/TextPreview';
+import DisplayPreviewLink from '@/components/DisplayPreviewLink';
+import RagPreviewLink from '@/components/RagPreviewLink';
 import DeleteDocumentButton from '@/components/DeleteDocumentButton';
 import DocumentLineCount from '@/components/DocumentLineCount';
+import IngestPreviewLink from '@/components/IngestPreviewLink';
 import type { Metadata } from 'next';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -19,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     .single();
 
   return {
-    title: text ? `Edit: ${text.title}` : 'Edit Text',
+    title: text ? `Edit Text: ${text.title}` : 'Edit Text',
   };
 }
 
@@ -43,14 +45,26 @@ export default async function EditText({ params }: { params: Promise<{ id: strin
   // Get list of documents for this text
   const { data: documents } = await supabase
     .from('text_documents')
-    .select('id, source_type, ingest_status, created_at, meta')
+    .select(
+      `
+        id,
+        source_type,
+        ingest_status,
+        created_at,
+        meta,
+        texts (
+          title,
+          author
+        )
+      `
+    )
     .eq('text_id', id)
     .order('created_at', { ascending: false });
 
   return (
     <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Edit: {text.title}</h1>
+        <h1 className="text-xl font-semibold">Edit Text: {text.title}</h1>
         <Link className="text-blue-600 hover:underline" href="/admin/texts">← Back to Texts</Link>
       </div>
 
@@ -65,11 +79,20 @@ export default async function EditText({ params }: { params: Promise<{ id: strin
         <div className="border-t pt-6">
           <h2 className="text-lg font-semibold mb-4">Uploaded Documents</h2>
           <ul className="space-y-4">
-            {documents.map((doc) => (
+            {documents.map((doc) => {
+              const relatedText = (doc as any).texts as { title?: string | null; author?: string | null } | null;
+
+              return (
               <li key={doc.id} className="border p-3 rounded">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="font-medium">{doc.meta?.filename || 'Unknown file'}</div>
+                    <div className="font-medium">
+                      {relatedText?.title || text.title}
+                      {relatedText?.author && (
+                        <span className="opacity-80"> • {relatedText.author}</span>
+                      )}
+                      <span className="opacity-70"> • {doc.meta?.filename || 'Unknown file'}</span>
+                    </div>
                     <div className="text-sm opacity-70">
                       Type: {doc.source_type} • Status: {doc.ingest_status}
                       {doc.created_at && ` • Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`}
@@ -79,27 +102,33 @@ export default async function EditText({ params }: { params: Promise<{ id: strin
                         ingestStatus={doc.ingest_status}
                       />
                     </div>
+                    {doc.ingest_status !== 'embedded' && (
+                      <div className="text-sm text-gray-500 mt-2">
+                        Preview available after ingestion is complete
+                      </div>
+                    )}
                   </div>
-                  <DeleteDocumentButton
-                    textId={id}
-                    documentId={doc.id}
-                    filename={doc.meta?.filename}
-                  />
+                  <div className="flex flex-col items-end gap-2 ml-4">
+                    {doc.ingest_status === 'embedded' && (
+                      <>
+                        <IngestPreviewLink textId={id} documentId={doc.id} />
+                        <RagPreviewLink textId={id} documentId={doc.id} />
+                        <DisplayPreviewLink
+                          textId={id}
+                          documentId={doc.id}
+                          filename={doc.meta?.filename}
+                        />
+                      </>
+                    )}
+                    <DeleteDocumentButton
+                      textId={id}
+                      documentId={doc.id}
+                      filename={doc.meta?.filename}
+                    />
+                  </div>
                 </div>
-                {doc.ingest_status === 'embedded' && (
-                  <TextPreview
-                    textId={id}
-                    documentId={doc.id}
-                    filename={doc.meta?.filename}
-                  />
-                )}
-                {doc.ingest_status !== 'embedded' && (
-                  <div className="text-sm text-gray-500 mt-2">
-                    Preview available after ingestion is complete
-                  </div>
-                )}
               </li>
-            ))}
+            )})}
           </ul>
         </div>
       )}

@@ -1,6 +1,6 @@
 // api/admin/courses/[slug]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientForRoute } from '@/lib/supabase-route';
+import { createClientForRoute } from '@/lib/supabase/route';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { supabase, applyCookies } = createClientForRoute(req);

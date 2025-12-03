@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { createClientBrowser } from '@/lib/supabase-client';
+import { createClientBrowser } from '@/lib/supabase';
 
 type Profile = {
   id?: string;           // user id (same as auth user id)

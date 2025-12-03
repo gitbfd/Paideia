@@ -1,7 +1,7 @@
 // courses/page.tsx
 // List published courses
 import Link from 'next/link';
-import { createClientServer } from '@/lib/supabase-server';
+import { createClientServer } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {

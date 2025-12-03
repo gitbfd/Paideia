@@ -2,7 +2,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClientBrowser } from '@/lib/supabase-client';
+import { createClientBrowser } from '@/lib/supabase';
 
 export default function UpdatePassword() {
   const supabase = createClientBrowser();

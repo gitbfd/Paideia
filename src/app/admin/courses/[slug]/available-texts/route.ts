@@ -1,6 +1,6 @@
 // src/app/admin/courses/[slug]/available-texts/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientForRoute } from '@/lib/supabase-route';
+import { createClientForRoute } from '@/lib/supabase/route';
 
 // GET /admin/courses/:slug/available-texts
 // Get all texts with their embedded documents (for adding to course)

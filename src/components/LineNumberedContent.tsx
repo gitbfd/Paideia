@@ -1,11 +1,10 @@
 // src/components/LineNumberedContent.tsx
 'use client';
 
-import { previewStylesConfig } from '@/lib/preview-styles-config';
-import { type GridRow } from '@/lib/html-to-grid-rows';
+import { previewStylesConfig, type GridRow } from '@/lib/display';
 
 type Props = {
-  gridRows?: GridRow[]; // Grid rows to display (new grid-based approach)
+  gridRows?: GridRow[]; // Grid rows to display (line-based approach)
   startLine?: number; // Starting line number (defaults to 1)
   // Legacy props for backward compatibility (will be removed)
   content?: string;
@@ -14,14 +13,14 @@ type Props = {
 };
 
 export default function LineNumberedContent({ 
-  gridRows, 
+  gridRows,
   startLine = 1,
   // Legacy props
   content,
   lineCount,
   useExactLineCount
 }: Props) {
-  // If gridRows is provided, use the new grid-based approach
+  // If gridRows is provided, use the line-based grid approach
   if (gridRows && gridRows.length > 0) {
     // Find first and last <p> tags for margin styling
     const pTagIndices: number[] = [];

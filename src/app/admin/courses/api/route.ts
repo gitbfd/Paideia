@@ -1,7 +1,7 @@
 // src/app/admin/courses/api/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientForRoute } from '@/lib/supabase-route';
+import { createClientForRoute } from '@/lib/supabase/route';
 
 export async function POST(req: NextRequest) {
   const { supabase, applyCookies } = createClientForRoute(req);

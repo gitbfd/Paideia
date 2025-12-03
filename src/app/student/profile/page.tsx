@@ -1,5 +1,5 @@
 // src/app/student/profile/page.tsx
-import { createClientServer } from '@/lib/supabase';
+import { createClientServer } from '@/lib/supabase/server';
 import TopRightActions from './TopRightActions';
 import StudentProfileForm from './StudentProfileForm';
 import type { Metadata } from 'next';

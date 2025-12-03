@@ -3,7 +3,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { createClientBrowser } from '@/lib/supabase-client';
+import { createClientBrowser } from '@/lib/supabase';
 
 type Props = { courseId: string; courseSlug: string };
 

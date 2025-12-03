@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 type Text = {
@@ -17,8 +18,10 @@ type Text = {
 
 type TextSection = {
   id: string;
-  start_line: number;
-  end_line: number;
+  start_line: number | null;
+  end_line: number | null;
+  start_char: number | null;
+  end_char: number | null;
   title?: string;
   order_index: number;
   text_document_id: string;
@@ -26,11 +29,11 @@ type TextSection = {
     id: string;
     meta?: { filename?: string };
     text_id: string;
-    texts: {
+    texts?: {
       id: string;
       title: string;
       author?: string;
-    };
+    } | null;
   };
 };
 
@@ -48,11 +51,11 @@ export default function AddTextSection({ courseSlug }: Props) {
   const [selectedTextId, setSelectedTextId] = useState<string>('');
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>('');
   const [rangeType, setRangeType] = useState<'entire' | 'range'>('range');
-  const [startLine, setStartLine] = useState<string>('');
-  const [endLine, setEndLine] = useState<string>('');
+  const [startBlock, setStartBlock] = useState<string>('');
+  const [endBlock, setEndBlock] = useState<string>('');
   const [sectionTitle, setSectionTitle] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
-  const [documentLineCount, setDocumentLineCount] = useState<number | null>(null);
+  const [blockCount, setBlockCount] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [initialSectionsSnapshot, setInitialSectionsSnapshot] = useState<TextSection[] | null>(null);
@@ -97,45 +100,45 @@ export default function AddTextSection({ courseSlug }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedDocumentId || !startLine || !endLine) {
+    if (!selectedDocumentId || !startBlock || !endBlock) {
       setError('Please fill in all required fields');
       return;
     }
 
-    const start = parseInt(startLine, 10);
+    const start = parseInt(startBlock, 10);
     let end: number;
 
-    // Handle "Last" in end line
-    if (endLine.toLowerCase() === 'last') {
-      if (!documentLineCount) {
-        // Fetch line count if not already available
+    // Handle "Last" in end block
+    if (endBlock.toLowerCase() === 'last') {
+      if (!blockCount) {
+        // Fetch block count if not already available
         try {
           const res = await fetch(`/admin/texts/${selectedTextId}/documents/${selectedDocumentId}/preview/api`);
           const data = await res.json();
-          if (res.ok && data.lineCount) {
-            end = data.lineCount;
-            setDocumentLineCount(data.lineCount);
+          if (res.ok && data.blockCount) {
+            end = data.blockCount;
+            setBlockCount(data.blockCount);
           } else {
-            setError('Could not determine line count. Please enter a number.');
+            setError('Could not determine block count. Please enter a number.');
             return;
           }
         } catch (err) {
-          setError('Could not determine line count. Please enter a number.');
+          setError('Could not determine block count. Please enter a number.');
           return;
         }
       } else {
-        end = documentLineCount;
+        end = blockCount;
       }
     } else {
-      end = parseInt(endLine, 10);
+      end = parseInt(endBlock, 10);
       if (isNaN(end)) {
-        setError('End line must be a number or "Last"');
+        setError('End block must be a number or "Last"');
         return;
       }
     }
 
     if (isNaN(start) || start < 1 || end < start) {
-      setError('Invalid line range');
+      setError('Invalid block range (blocks start at 1)');
       return;
     }
 
@@ -143,13 +146,37 @@ export default function AddTextSection({ courseSlug }: Props) {
     setError(null);
 
     try {
+      // Use API endpoint to extract character ranges server-side
+      const extractRes = await fetch(
+        `/admin/texts/${selectedTextId}/documents/${selectedDocumentId}/preview/api/extract-char-ranges`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            startBlock: start,
+            endBlock: end,
+          }),
+        }
+      );
+
+      const extractData = await extractRes.json();
+
+      if (!extractRes.ok) {
+        throw new Error(extractData.error || 'Could not extract character range');
+      }
+
+      const charRange = {
+        start_char: extractData.start_char,
+        end_char: extractData.end_char,
+      };
+
       const res = await fetch(`/admin/courses/${courseSlug}/text-sections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text_document_id: selectedDocumentId,
-          start_line: start,
-          end_line: end,
+          start_char: charRange.start_char,
+          end_char: charRange.end_char,
           title: sectionTitle || null,
           order_index: sections.length,
         }),
@@ -164,10 +191,10 @@ export default function AddTextSection({ courseSlug }: Props) {
       setSelectedTextId('');
       setSelectedDocumentId('');
       setRangeType('range');
-      setStartLine('');
-      setEndLine('');
+      setStartBlock('');
+      setEndBlock('');
       setSectionTitle('');
-      setDocumentLineCount(null);
+      setBlockCount(null);
       setShowAddForm(false);
       await loadData();
       router.refresh();
@@ -372,28 +399,28 @@ export default function AddTextSection({ courseSlug }: Props) {
                 value={selectedDocumentId}
                 onChange={async (e) => {
                   setSelectedDocumentId(e.target.value);
-                  setDocumentLineCount(null);
+                  setBlockCount(null);
                   // Reset form when document changes
                   if (rangeType === 'entire') {
-                    setStartLine('1');
-                    setEndLine('');
+                    setStartBlock('1');
+                    setEndBlock('');
                   } else {
-                    setStartLine('');
-                    setEndLine('');
+                    setStartBlock('');
+                    setEndBlock('');
                   }
-                  // Fetch line count for the selected document
+                  // Fetch block count for the selected document
                   if (e.target.value && selectedTextId) {
                     try {
                       const res = await fetch(`/admin/texts/${selectedTextId}/documents/${e.target.value}/preview/api`);
                       const data = await res.json();
-                      if (res.ok && data.lineCount) {
-                        setDocumentLineCount(data.lineCount);
+                      if (res.ok && data.blockCount) {
+                        setBlockCount(data.blockCount);
                         if (rangeType === 'entire') {
-                          setEndLine(String(data.lineCount));
+                          setEndBlock(String(data.blockCount));
                         }
                       }
                     } catch (err) {
-                      console.error('Failed to fetch line count:', err);
+                      console.error('Failed to fetch block count:', err);
                     }
                   }
                 }}
@@ -420,12 +447,12 @@ export default function AddTextSection({ courseSlug }: Props) {
                   checked={rangeType === 'entire'}
                   onChange={(e) => {
                     setRangeType('entire');
-                    if (selectedDocumentId && documentLineCount) {
-                      setStartLine('1');
-                      setEndLine(String(documentLineCount));
+                    if (selectedDocumentId && blockCount) {
+                      setStartBlock('1');
+                      setEndBlock(String(blockCount));
                     } else {
-                      setStartLine('1');
-                      setEndLine('');
+                      setStartBlock('1');
+                      setEndBlock('');
                     }
                   }}
                   className="w-4 h-4"
@@ -440,8 +467,8 @@ export default function AddTextSection({ courseSlug }: Props) {
                   checked={rangeType === 'range'}
                   onChange={(e) => {
                     setRangeType('range');
-                    setStartLine('');
-                    setEndLine('');
+                    setStartBlock('');
+                    setEndBlock('');
                   }}
                   className="w-4 h-4"
                 />
@@ -449,38 +476,62 @@ export default function AddTextSection({ courseSlug }: Props) {
               </label>
             </div>
 
+            {selectedTextId && selectedDocumentId && (
+              <div className="mb-3">
+                <p className="text-sm text-gray-600 mb-2">
+                  Open the <a href={`/admin/texts/${selectedTextId}/documents/${selectedDocumentId}/preview`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Display Preview</a> to see block numbers.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium mb-1">Start Line</label>
+                <label className="block text-sm font-medium mb-1">Start Block</label>
                 <input
                   type="number"
-                  value={startLine}
-                  onChange={(e) => setStartLine(e.target.value)}
+                  value={startBlock}
+                  onChange={(e) => setStartBlock(e.target.value)}
                   className="w-full border rounded px-3 py-2"
                   min="1"
                   disabled={rangeType === 'entire'}
                   required
                 />
+                {blockCount && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {startBlock ? `Block ${Number(startBlock).toLocaleString()}` : 'Start block'}
+                  </p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">End Line</label>
+                <label className="block text-sm font-medium mb-1">End Block</label>
                 <input
                   type="text"
-                  value={endLine}
+                  value={endBlock}
                   onChange={(e) => {
                     const value = e.target.value;
-                    // Allow numbers or "Last" (case-insensitive, including partial matches as user types)
+                    // Allow numbers or "Last" (case-insensitive)
                     if (value === '' || /^\d+$/.test(value) || /^[lL][aA]?[sS]?[tT]?$/.test(value)) {
-                      setEndLine(value);
+                      setEndBlock(value);
                     }
                   }}
                   className="w-full border rounded px-3 py-2"
                   disabled={rangeType === 'entire'}
-                  placeholder={rangeType === 'entire' ? '' : 'e.g., 100 or Last'}
+                  placeholder={rangeType === 'entire' ? '' : 'e.g., 150 or Last'}
                   required
                 />
+                {blockCount && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {endBlock && endBlock.toLowerCase() !== 'last' 
+                      ? `Block ${Number(endBlock).toLocaleString()}${endBlock && startBlock ? ` (${(Number(endBlock) - Number(startBlock) + 1).toLocaleString()} blocks)` : ''}`
+                      : `Total: ${blockCount.toLocaleString()} blocks`}
+                  </p>
+                )}
               </div>
             </div>
+            {blockCount && (
+              <p className="text-sm text-gray-600 mt-2">
+                Document has {blockCount.toLocaleString()} block{blockCount === 1 ? '' : 's'}
+              </p>
+            )}
           </div>
 
           <div>
@@ -510,10 +561,10 @@ export default function AddTextSection({ courseSlug }: Props) {
                 setSelectedTextId('');
                 setSelectedDocumentId('');
                 setRangeType('range');
-                setStartLine('');
-                setEndLine('');
+                setStartBlock('');
+                setEndBlock('');
                 setSectionTitle('');
-                setDocumentLineCount(null);
+                setBlockCount(null);
               }}
               className="px-4 py-2 border rounded hover:bg-gray-100"
             >
@@ -561,33 +612,71 @@ export default function AddTextSection({ courseSlug }: Props) {
                     <line x1="15" y1="3" x2="15" y2="21"></line>
                   </svg>
                 </div>
-                <div className="flex-1">
-                  <div className="font-medium text-gray-500 group-hover:text-black transition-colors">
-                    {section.title || `${section.text_documents.texts.title} (Lines ${section.start_line}-${section.end_line})`}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {section.text_documents.texts.title}
-                    {section.text_documents.texts.author && ` by ${section.text_documents.texts.author}`}
-                    {' • '}
-                    {section.text_documents.meta?.filename || 'Document'}
-                    {' • Lines '}
-                    {section.start_line}-{section.end_line}
+                <div className="flex-1 space-y-2">
+                  {(() => {
+                    const rangeLabel =
+                      section.start_char !== null && section.end_char !== null
+                        ? `Chars ${section.start_char.toLocaleString()}-${section.end_char.toLocaleString()}`
+                        : section.start_line !== null && section.end_line !== null
+                        ? `Lines ${section.start_line}-${section.end_line}`
+                        : 'Range not specified';
+                    const textTitle = section.text_documents.texts?.title;
+                    const textAuthor = section.text_documents.texts?.author;
+                    const filename = section.text_documents.meta?.filename || 'Document';
+                    return (
+                      <>
+                        <div className="font-medium text-gray-500 group-hover:text-black transition-colors">
+                          {section.title || `${textTitle || 'Untitled'} (${rangeLabel})`}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {textTitle}
+                          {textAuthor && ` by ${textAuthor}`}
+                          {' • '}
+                          {filename}
+                          {' • '}
+                          {rangeLabel}
+                        </div>
+                      </>
+                    );
+                  })()}
+                  <div className="flex flex-wrap gap-4 text-sm text-blue-600">
+                    <Link
+                      href={`/admin/courses/${courseSlug}/text-sections/${section.id}/preview/display`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline"
+                    >
+                      Preview Display
+                    </Link>
+                    <Link
+                      href={`/admin/courses/${courseSlug}/text-sections/${section.id}/preview/rag`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline"
+                    >
+                      Preview RAG
+                    </Link>
+                    <Link
+                      href={`/admin/courses/${courseSlug}/text-sections/${section.id}/edit`}
+                      className="hover:underline"
+                    >
+                      Edit Metadata
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(section.id)}
+                      className="text-red-600 hover:underline"
+                    >
+                      Remove Text
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div
-                    className="text-gray-400 px-1 select-none leading-none"
-                    style={{ cursor: draggedIndex === index ? 'grabbing' : 'grab', fontSize: '2.3rem' }}
-                    aria-hidden="true"
-                  >
-                    ⇕
-                  </div>
-                  <button
-                    onClick={() => handleDelete(section.id)}
-                    className="text-sm text-red-600 hover:underline flex-shrink-0"
-                  >
-                    {section.text_documents ? 'Remove Text' : 'Remove Assessment'}
-                  </button>
+                <div
+                  className="flex items-center gap-2 flex-shrink-0 text-gray-400 px-1 select-none leading-none"
+                  style={{ cursor: draggedIndex === index ? 'grabbing' : 'grab', fontSize: '2.3rem' }}
+                  aria-hidden="true"
+                >
+                  ⇕
                 </div>
               </li>
             ))}

@@ -1,6 +1,6 @@
 // src/app/admin/courses/published/page.tsx
 import Link from 'next/link';
-import { createClientServer } from '@/lib/supabase-server';
+import { createClientServer } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {

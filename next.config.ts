@@ -12,9 +12,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Externalize pdf-parse to avoid bundling issues
-  // Note: pdfjs-dist is ESM and can't be externalized, so we only externalize pdf-parse
-  serverExternalPackages: ['pdf-parse'],
 };
 
 export default nextConfig;

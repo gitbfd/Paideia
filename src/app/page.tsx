@@ -1,7 +1,7 @@
 // src/app/page.tsx
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { createClientServer } from '@/lib/supabase';
+import { createClientServer } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {

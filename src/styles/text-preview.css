@@ -1,0 +1,332 @@
+/* text-preview.css
+ * Shared stylesheet for:
+ * - Ingest Preview view
+ * - Display Preview view  
+ * - Student Course view (text/document display)
+ * 
+ * Edit this file directly to modify styling across all text preview views.
+ */
+
+/* CSS Variables - values from preview-styles-config.ts */
+:root {
+  --text-preview-base-line-height: 1.75;
+  
+  /* Paragraph styles */
+  --text-preview-p-font-size: 1rem;
+  --text-preview-p-line-height: 1.75;
+  --text-preview-p-margin-top: 0em;
+  --text-preview-p-margin-bottom: 1.5em;
+  
+  /* Heading styles */
+  --text-preview-h1-font-size: 1.75rem;
+  --text-preview-h1-line-height: 1.25;
+  --text-preview-h1-margin-top: 0.5em;
+  --text-preview-h1-margin-bottom: 0.5em;
+  --text-preview-h1-font-weight: 600;
+  
+  --text-preview-h2-font-size: 1.5rem;
+  --text-preview-h2-line-height: 1.25;
+  --text-preview-h2-margin-top: .45em;
+  --text-preview-h2-margin-bottom: 0.5em;
+  --text-preview-h2-font-weight: 600;
+  
+  --text-preview-h3-font-size: 1.25rem;
+  --text-preview-h3-line-height: 1.25;
+  --text-preview-h3-margin-top: .4em;
+  --text-preview-h3-margin-bottom: 0.5em;
+  --text-preview-h3-font-weight: 600;
+  
+  --text-preview-h4-font-size: 1.125rem;
+  --text-preview-h4-line-height: 1.25;
+  --text-preview-h4-margin-top: .35em;
+  --text-preview-h4-margin-bottom: 0.5em;
+  --text-preview-h4-font-weight: 600;
+  
+  --text-preview-h5-font-size: 1rem;
+  --text-preview-h5-line-height: 1.25;
+  --text-preview-h5-margin-top: .3em;
+  --text-preview-h5-margin-bottom: 0.5em;
+  --text-preview-h5-font-weight: 600;
+  
+  --text-preview-h6-font-size: 0.875rem;
+  --text-preview-h6-line-height: 1.25;
+  --text-preview-h6-margin-top: .25em;
+  --text-preview-h6-margin-bottom: 0.5em;
+  --text-preview-h6-font-weight: 600;
+  
+  /* Blockquote styles */
+  --text-preview-blockquote-font-size: 1rem;
+  --text-preview-blockquote-line-height: 1.75;
+  --text-preview-blockquote-margin-top: 0em;
+  --text-preview-blockquote-margin-bottom: 0.5em;
+  
+  /* Colors */
+  --text-preview-text-color: #1f2937;
+  --text-preview-heading-color: #111827;
+  --text-preview-link-color: #2563eb;
+  --text-preview-link-hover-color: #1d4ed8;
+  --text-preview-line-number-color: #6b7280;
+  --text-preview-line-number-bg: #f9fafb;
+  --text-preview-border-color: #e5e7eb;
+}
+
+/* Legacy flex-based layout styles */
+.text-preview-with-lines {
+  display: flex;
+  font-family: 'Courier New', monospace;
+}
+
+.text-preview-line-numbers {
+  padding-right: 1rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+  text-align: right;
+  color: var(--text-preview-line-number-color);
+  user-select: none;
+  border-right: 1px solid var(--text-preview-border-color);
+  min-width: 4rem;
+  font-size: 0.875rem;
+  line-height: var(--text-preview-base-line-height);
+  background-color: var(--text-preview-line-number-bg);
+}
+
+.text-preview-content-wrapper {
+  flex: 1;
+  padding-left: 1rem;
+  overflow-x: auto;
+}
+
+.text-preview-content {
+  color: var(--text-preview-text-color);
+}
+
+.text-preview-content p {
+  margin-bottom: var(--text-preview-p-margin-bottom);
+  color: var(--text-preview-text-color);
+}
+
+.text-preview-content a {
+  color: var(--text-preview-link-color);
+  text-decoration: underline;
+}
+
+.text-preview-content a:hover {
+  color: var(--text-preview-link-hover-color);
+}
+
+/* Grid-based layout styles */
+.text-preview-with-lines-grid {
+  font-family: 'Courier New', monospace;
+}
+
+.text-preview-grid-container {
+  display: grid;
+  grid-template-columns: 5rem 1fr;
+  border-right: 1px solid var(--text-preview-border-color);
+  align-items: baseline;
+}
+
+.text-preview-grid-row {
+  display: contents;
+}
+
+.text-preview-line-number-cell {
+  padding-right: 0.25rem;
+  text-align: right;
+  color: var(--text-preview-line-number-color);
+  user-select: none;
+  background-color: var(--text-preview-line-number-bg);
+  font-size: 0.875rem;
+  line-height: var(--text-preview-base-line-height);
+  border-right: 1px solid var(--text-preview-border-color);
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+}
+
+/* Center line numbers vertically for images and <pre> elements */
+.text-preview-line-number-cell.line-number-img,
+.text-preview-line-number-cell.line-number-pre {
+  align-items: center;
+  align-self: stretch;
+}
+
+.text-preview-content-cell {
+  padding-left: 1rem;
+  font-family: serif;
+  line-height: var(--text-preview-base-line-height);
+  color: var(--text-preview-text-color);
+}
+
+.text-preview-content-cell.paragraph-cell {
+  margin: 0;
+}
+
+.text-preview-content-cell.paragraph-cell.first-paragraph p {
+  margin-top: var(--text-preview-p-margin-top);
+  margin-bottom: 0;
+}
+
+.text-preview-content-cell.paragraph-cell.last-paragraph p {
+  margin-top: 0;
+  margin-bottom: var(--text-preview-p-margin-bottom);
+}
+
+.text-preview-content-cell.paragraph-cell:not(.first-paragraph):not(.last-paragraph) p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.text-preview-content-cell a {
+  color: var(--text-preview-link-color);
+  text-decoration: underline;
+}
+
+.text-preview-content-cell a:hover {
+  color: var(--text-preview-link-hover-color);
+}
+
+.conversion-empty-block {
+  min-height: calc(var(--text-preview-base-line-height) * 1rem);
+  display: block;
+}
+
+/* Heading styles */
+.text-preview-content h1,
+.text-preview-content-cell h1 {
+  font-size: var(--text-preview-h1-font-size);
+  font-weight: var(--text-preview-h1-font-weight);
+  line-height: var(--text-preview-h1-line-height);
+  margin-top: var(--text-preview-h1-margin-top);
+  margin-bottom: var(--text-preview-h1-margin-bottom);
+  color: var(--text-preview-heading-color);
+}
+
+.text-preview-line-number-cell.line-number-h1 {
+  margin-bottom: var(--text-preview-h1-margin-bottom);
+}
+
+.text-preview-content h2,
+.text-preview-content-cell h2 {
+  font-size: var(--text-preview-h2-font-size);
+  font-weight: var(--text-preview-h2-font-weight);
+  line-height: var(--text-preview-h2-line-height);
+  margin-top: var(--text-preview-h2-margin-top);
+  margin-bottom: var(--text-preview-h2-margin-bottom);
+  color: var(--text-preview-heading-color);
+}
+
+.text-preview-line-number-cell.line-number-h2 {
+  margin-bottom: var(--text-preview-h2-margin-bottom);
+}
+
+.text-preview-content h3,
+.text-preview-content-cell h3 {
+  font-size: var(--text-preview-h3-font-size);
+  font-weight: var(--text-preview-h3-font-weight);
+  line-height: var(--text-preview-h3-line-height);
+  margin-top: var(--text-preview-h3-margin-top);
+  margin-bottom: var(--text-preview-h3-margin-bottom);
+  color: var(--text-preview-heading-color);
+}
+
+.text-preview-line-number-cell.line-number-h3 {
+  margin-bottom: var(--text-preview-h3-margin-bottom);
+}
+
+.text-preview-content h4,
+.text-preview-content-cell h4 {
+  font-size: var(--text-preview-h4-font-size);
+  font-weight: var(--text-preview-h4-font-weight);
+  line-height: var(--text-preview-h4-line-height);
+  margin-top: var(--text-preview-h4-margin-top);
+  margin-bottom: var(--text-preview-h4-margin-bottom);
+  color: var(--text-preview-heading-color);
+}
+
+.text-preview-line-number-cell.line-number-h4 {
+  margin-bottom: var(--text-preview-h4-margin-bottom);
+}
+
+.text-preview-content h5,
+.text-preview-content-cell h5 {
+  font-size: var(--text-preview-h5-font-size);
+  font-weight: var(--text-preview-h5-font-weight);
+  line-height: var(--text-preview-h5-line-height);
+  margin-top: var(--text-preview-h5-margin-top);
+  margin-bottom: var(--text-preview-h5-margin-bottom);
+  color: var(--text-preview-heading-color);
+}
+
+.text-preview-line-number-cell.line-number-h5 {
+  margin-bottom: var(--text-preview-h5-margin-bottom);
+}
+
+.text-preview-content h6,
+.text-preview-content-cell h6 {
+  font-size: var(--text-preview-h6-font-size);
+  font-weight: var(--text-preview-h6-font-weight);
+  line-height: var(--text-preview-h6-line-height);
+  margin-top: var(--text-preview-h6-margin-top);
+  margin-bottom: var(--text-preview-h6-margin-bottom);
+  color: var(--text-preview-heading-color);
+}
+
+.text-preview-line-number-cell.line-number-h6 {
+  margin-bottom: var(--text-preview-h6-margin-bottom);
+}
+
+/* Blockquote styles */
+.text-preview-content blockquote,
+.text-preview-content-cell blockquote {
+  font-size: var(--text-preview-blockquote-font-size);
+  line-height: var(--text-preview-blockquote-line-height);
+  margin-top: var(--text-preview-blockquote-margin-top);
+  margin-bottom: var(--text-preview-blockquote-margin-bottom);
+  color: var(--text-preview-text-color);
+  border-left: 4px solid var(--text-preview-border-color);
+  padding-left: 1em;
+  font-style: italic;
+}
+
+.text-preview-line-number-cell.line-number-blockquote {
+  margin-bottom: var(--text-preview-blockquote-margin-bottom);
+}
+
+/* List styles */
+/* nested lists get no margin-bottom */
+.text-preview-content li ol,
+.text-preview-content-cell li ol,
+.text-preview-content li ul,
+.text-preview-content-cell li ul {
+  margin-bottom: 0;
+  /* background-color: blue; */
+}
+/* p directly before ol/ul gets no margin-bottom */
+.text-preview-content p:has(+ ol),
+.text-preview-content-cell p:has(+ ol),
+.text-preview-content p:has(+ ul),
+.text-preview-content-cell p:has(+ ul) {
+  margin-bottom: 0;
+  /* background-color: green; */
+}
+/* ol & ul get the same styling */
+.text-preview-content ol,
+.text-preview-content-cell ol,
+.text-preview-content ul,
+.text-preview-content-cell ul {
+  list-style-type: disc;
+  margin-left: 1.5em;
+  margin-top: 0;
+  margin-bottom: 0.5em;
+  padding-left: 0.5em;
+  /* background-color: red; */
+}
+
+.text-preview-content ol, .text-preview-content-cell ol {
+  list-style-type: decimal;
+}
+.text-preview-content li, .text-preview-content-cell li {
+  display: list-item;
+}
+

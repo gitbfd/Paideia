@@ -5,10 +5,9 @@ import Link from 'next/link';
 
 type SectionLink = {
   id: string;
-  title: string;
+  sectionTitle?: string | null;
   textTitle?: string | null;
-  startLine: number;
-  endLine: number;
+  textAuthor?: string | null;
 };
 
 type Props = {
@@ -117,12 +116,26 @@ export default function CourseSectionSidebar({
               className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
               onClick={() => handleNavigate(section.id)}
             >
-              <div className="text-sm font-medium text-gray-800 truncate">
-                {section.title || section.textTitle || 'Untitled Section'}
+              <div className="text-sm font-semibold text-gray-900 truncate">
+                {section.textTitle ? (
+                  <>
+                    {section.textTitle}
+                    {section.textAuthor && (
+                      <span className="text-gray-600 font-normal">
+                        {' by '}
+                        {section.textAuthor}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  'Untitled Text'
+                )}
               </div>
-              <div className="text-xs text-gray-500">
-                Lines {section.startLine}–{section.endLine}
-              </div>
+              {section.sectionTitle && (
+                <div className="text-xs text-gray-500 truncate">
+                  {section.sectionTitle}
+                </div>
+              )}
             </li>
           ))}
         </ul>

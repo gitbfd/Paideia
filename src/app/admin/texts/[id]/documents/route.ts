@@ -1,6 +1,6 @@
 // api/admin/texts/[id]/documents/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientForRoute } from '@/lib/supabase-route';
+import { createClientForRoute } from '@/lib/supabase/route';
 
 // Expect body: { storage_path: string, source_type?: 'pdf'|'txt'|'html'|'markdown'|'other', bytes?: number, mime?: string, meta?: object }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

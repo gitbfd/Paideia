@@ -1,9 +1,8 @@
 // src/app/admin/texts/[id]/documents/[documentId]/preview/page.tsx
-import { createClientServer } from '@/lib/supabase-server';
-import { convertTextToHtml } from '@/lib/text-to-html';
+import { createClientServer } from '@/lib/supabase/server';
+import { convertTextToHtml } from '@/lib/shared';
 import LineNumberedContent from '@/components/LineNumberedContent';
-import { htmlToGridRows } from '@/lib/html-to-grid-rows';
-import { generateTextPreviewStyles } from '@/lib/text-preview-styles';
+import '@/styles/text-preview.css';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -20,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const filename = document?.meta?.filename || 'Document';
 
   return {
-    title: filename,
+    title: `${filename} • Display Preview`,
   };
 }
 
@@ -28,10 +27,10 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
   const supabase = await createClientServer();
   const { id, documentId } = await params;
 
-  // Get document info
+  // Get document info with conversion_content (raw HTML) and rag_text for character-based display
   const { data: document, error: docError } = await supabase
     .from('text_documents')
-    .select('display_content, source_type, meta, text_id, texts(title)')
+    .select('conversion_content, display_content, rag_text, source_type, meta, text_id, texts(title)')
     .eq('id', documentId)
     .single();
 
@@ -49,7 +48,13 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
   let content: string;
   let isReconstructed = false;
 
-  if (!document.display_content) {
+  // Use conversion_content (raw HTML from converter) as the source
+  if (document.conversion_content) {
+    content = document.conversion_content;
+  } else if (document.display_content) {
+    // Fallback to display_content if conversion_content not available
+    content = document.display_content;
+  } else {
     // Fallback: reconstruct from chunks
     const { data: chunks, error: chunksError } = await supabase
       .from('text_document_chunks')
@@ -61,7 +66,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
       return (
         <main className="p-6">
           <div className="text-amber-600 bg-amber-50 p-4 rounded border border-amber-200">
-            Display content not available. This document was ingested before the display_content feature was added. Please re-ingest the document to enable preview.
+            Conversion content not available. Please re-ingest the document to enable preview.
           </div>
           <Link href={`/admin/texts/${id}/edit`} className="text-blue-600 hover:underline mt-4 inline-block">
             ← Back to Text
@@ -74,25 +79,36 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
     const sourceType = (document.source_type || 'txt') as 'pdf' | 'txt' | 'markdown' | 'html' | 'other';
     content = await convertTextToHtml(reconstructedText, sourceType);
     isReconstructed = true;
-  } else {
-    content = document.display_content;
   }
 
-  // Convert HTML to grid rows for the new grid-based layout
-  const gridRows = htmlToGridRows(content, 1);
-
+  // Convert HTML to block-based grid rows with character range metadata
   const textTitle = (document.texts as any)?.title || 'Unknown Text';
   const filename = document.meta?.filename || 'Document';
-  const lineCount = gridRows.length;
+  
+  let gridRows: any[] | null = null;
+  let blockCount = 0;
+  
+  // Use block-based grid (with character ranges if rag_text is available)
+  if (content) {
+    try {
+      const { htmlToBlockGridRowsWithChars } = await import('@/lib/display/html');
+      gridRows = htmlToBlockGridRowsWithChars(content, document.rag_text || undefined);
+      blockCount = gridRows.length;
+    } catch (err) {
+      console.error('[preview] Error creating block-based grid:', err);
+      gridRows = [];
+      blockCount = 0;
+    }
+  }
 
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="sticky top-0 bg-white border-b shadow-sm z-10 p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">{filename}</h1>
-            <div className="text-sm text-gray-600">
-              {textTitle} • {content.length.toLocaleString()} characters • {lineCount.toLocaleString()} lines
+            <h1 className="text-xl font-semibold text-gray-900">{filename} • Display Preview</h1>
+            <div className="text-sm text-gray-700">
+              {textTitle} • {content.length.toLocaleString()} characters • {blockCount.toLocaleString()} block{blockCount === 1 ? '' : 's'}
             </div>
           </div>
           <Link
@@ -115,8 +131,6 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
           <LineNumberedContent gridRows={gridRows} startLine={1} />
         </div>
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: generateTextPreviewStyles() }} />
     </main>
   );
 }

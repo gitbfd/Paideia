@@ -1,6 +1,6 @@
 // src/app/admin/texts/[id]/documents/[documentId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientAdmin } from '@/lib/supabase-admin';
+import { createClientAdmin } from '@/lib/supabase/admin';
 
 // DELETE /admin/texts/:id/documents/:documentId
 // Deletes a document and all associated data (chunks, storage file)

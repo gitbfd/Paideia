@@ -1,6 +1,6 @@
 // src/app/admin/courses/[slug]/edit/page.tsx
 import Link from 'next/link';
-import { createClientServer } from '@/lib/supabase-server';
+import { createClientServer } from '@/lib/supabase/server';
 import CourseEditForm from '@/components/CourseEditForm';
 import AddTextSection from '@/components/AddTextSection';
 import type { Metadata } from 'next';
@@ -11,12 +11,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   
   const { data: course } = await supabase
     .from('courses')
-    .select('title')
+    .select('title, status')
     .eq('slug', slug)
     .single();
 
+  const titlePrefix = course?.status === 'draft' 
+    ? 'Edit DRAFT Course:' 
+    : course?.status === 'published' 
+    ? 'Edit PBLSHD Course:' 
+    : 'Edit Course:';
+  
   return {
-    title: course ? `Edit: ${course.title}` : 'Edit Course',
+    title: course ? `${titlePrefix} ${course.title}` : 'Edit Course',
   };
 }
 
@@ -37,10 +43,16 @@ export default async function EditCourse({ params }: { params: Promise<{ slug: s
     return <div className="p-6">Course not found.</div>;
   }
 
+  const headingPrefix = course.status === 'draft' 
+    ? 'Edit DRAFT Course:' 
+    : course.status === 'published' 
+    ? 'Edit PBLSHD Course:' 
+    : 'Edit Course:';
+
   return (
     <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Edit: {course.title}</h1>
+        <h1 className="text-xl font-semibold">{headingPrefix} {course.title}</h1>
         <Link className="text-blue-600 hover:underline" href="/admin/courses">← Back to Courses</Link>
       </div>
 

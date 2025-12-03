@@ -1,8 +1,8 @@
 // src/app/admin/texts/[id]/documents/[documentId]/preview/api/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientForRoute } from '@/lib/supabase-route';
-import { convertTextToHtml } from '@/lib/text-to-html';
-import { getWrappedHtmlLineCount } from '@/lib/wrap-html';
+import { createClientForRoute } from '@/lib/supabase/route';
+import { convertTextToHtml } from '@/lib/shared';
+import { getWrappedHtmlBlockCount } from '@/lib/display/html';
 
 // GET /admin/texts/:id/documents/:documentId/preview/api
 // Returns the display_content field which contains the full readable text (not RAG chunks)
@@ -10,10 +10,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { supabase, applyCookies } = createClientForRoute(req);
   const { documentId } = await params;
 
-  // Get display_content from the document (this is the cleaned, readable version)
+  // Get conversion_content (raw HTML) and rag_text from the document
   const { data: document, error } = await supabase
     .from('text_documents')
-    .select('display_content')
+    .select('conversion_content, display_content, rag_text')
     .eq('id', documentId)
     .single();
 
@@ -25,8 +25,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return applyCookies(NextResponse.json({ error: 'Document not found' }, { status: 404 }));
   }
 
-  if (!document.display_content) {
-    // Fallback: try to reconstruct from chunks for documents ingested before display_content was added
+  // Use conversion_content (raw HTML) as the source, fallback to display_content
+  let htmlContent = document.conversion_content || document.display_content;
+  
+  if (!htmlContent) {
+    // Fallback: try to reconstruct from chunks for documents ingested before conversion_content was added
     const { data: docInfo, error: docInfoError } = await supabase
       .from('text_documents')
       .select('source_type')
@@ -41,7 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (chunksError || !chunks || chunks.length === 0) {
       return applyCookies(NextResponse.json({ 
-        error: 'Display content not available. This document was ingested before the display_content feature was added. Please re-ingest the document to enable preview.',
+        error: 'Conversion content not available. Please re-ingest the document to enable preview.',
         needsReingest: true
       }, { status: 404 }));
     }
@@ -49,26 +52,36 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Reconstruct from chunks and convert to HTML
     const reconstructedText = chunks.map(chunk => chunk.content).join('\n\n');
     const sourceType = (docInfo?.source_type || 'txt') as 'pdf' | 'txt' | 'markdown' | 'html' | 'other';
-    const reconstructedHtml = await convertTextToHtml(reconstructedText, sourceType);
-    
-    // Count lines for reconstructed content using the same wrapping logic (uses config from line-wrap-config.ts)
-    const lineCount = getWrappedHtmlLineCount(reconstructedHtml);
-
-    return applyCookies(NextResponse.json({ 
-      content: reconstructedHtml,
-      characterCount: reconstructedHtml.length,
-      lineCount: lineCount,
-      isReconstructed: true // Flag to indicate this is from chunks, not display_content
-    }, { status: 200 }));
+    htmlContent = await convertTextToHtml(reconstructedText, sourceType);
   }
 
-  // Count lines in the HTML content using the same wrapping logic (uses config from line-wrap-config.ts)
-  const lineCount = getWrappedHtmlLineCount(document.display_content);
+  // Count blocks in the HTML content (approximate - based on block elements)
+  // Text wraps naturally with CSS, so this is an approximation
+  const lineCount = getWrappedHtmlBlockCount(htmlContent);
+  
+  // Get character count from rag_text (cleaned text source of truth) if available
+  const ragTextCharCount = document.rag_text ? document.rag_text.length : null;
+
+  // Calculate block count using block-based grid
+  let blockCount: number | null = null;
+  if (htmlContent) {
+    try {
+      const { htmlToBlockGridRowsWithChars } = await import('@/lib/display/html');
+      const gridRows = htmlToBlockGridRowsWithChars(htmlContent, document.rag_text || undefined);
+      blockCount = gridRows.length;
+    } catch (err) {
+      console.error('[preview/api] Error calculating block count:', err);
+    }
+  }
 
   return applyCookies(NextResponse.json({ 
-    content: document.display_content,
-    characterCount: document.display_content.length,
-    lineCount: lineCount
+    content: htmlContent,
+    displayContent: htmlContent, // Alias for clarity (this is the raw HTML from conversion)
+    ragText: document.rag_text || null, // Include rag_text for processing
+    characterCount: htmlContent.length,
+    ragTextCharCount: ragTextCharCount, // Character count of cleaned text (for character-based selection)
+    lineCount: lineCount,
+    blockCount: blockCount // Block count for block-based selection
   }, { status: 200 }));
 }
 

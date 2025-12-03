@@ -1,7 +1,7 @@
 // src/app/admin/texts/[id]/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientForRoute } from '@/lib/supabase-route';
+import { createClientForRoute } from '@/lib/supabase/route';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { supabase, applyCookies } = createClientForRoute(req);

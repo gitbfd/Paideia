@@ -1,9 +1,16 @@
 // src/app/courses/[slug]/page.tsx
 // course detail shell
-import { createClientServer } from '@/lib/supabase-server';
+import { createClientServer } from '@/lib/supabase/server';
 import LineNumberedContent from '@/components/LineNumberedContent';
-import { htmlToGridRows, extractGridRowRange, type GridRow } from '@/lib/html-to-grid-rows';
-import { generateTextPreviewStyles } from '@/lib/text-preview-styles';
+import {
+  htmlToGridRows,
+  extractGridRowRange,
+  filterBlockRowsByCharRange,
+  htmlToBlockGridRowsWithChars,
+  type GridRow,
+  type BlockGridRowWithChars,
+} from '@/lib/display/html';
+import '@/styles/text-preview.css';
 import type { Metadata } from 'next';
 import CourseSectionSidebar from '@/components/CourseSectionSidebar';
 
@@ -48,26 +55,37 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
     | null = null;
 
   if (user) {
-    const { data: profileData } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('avatar_url, first_name, last_name')
       .eq('id', user.id)
-      .single();
+      .maybeSingle(); // Use maybeSingle() instead of single() to handle missing profiles gracefully
+    
+    if (profileError) {
+      console.error('[courses/[slug]] Error fetching profile:', profileError);
+    }
+    
     profile = profileData ?? null;
   }
 
   // Fetch text sections for this course with display_content
+  // Note: Requires RLS policy "texts_read_for_published_courses" to be applied
+  // See migration: 20251203_1200--allowPublicReadTextsForPublishedCourses.sql
   const { data: textSections, error: sectionsError } = await supabase
     .from('course_text_sections')
     .select(`
       id,
       start_line,
       end_line,
+      start_char,
+      end_char,
       title,
       order_index,
       text_documents (
         id,
         display_content,
+        rag_text,
+        source_type,
         meta,
         text_id,
         texts (
@@ -79,6 +97,10 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
     `)
     .eq('course_id', course.id)
     .order('order_index', { ascending: true });
+
+  if (sectionsError) {
+    console.error('[courses/[slug]] Error fetching text sections:', sectionsError);
+  }
 
   // Calculate total line count and character count for potential display
   const stats = (() => {
@@ -108,17 +130,92 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
     };
   })();
 
+  // Process sections asynchronously to extract content
+  const processedSections: Array<{
+    section: any;
+    textDoc: any;
+    text: any;
+    gridRows: GridRow[] | null;
+    useCharacterBased: boolean;
+  }> = textSections && textSections.length > 0
+    ? await Promise.all(
+        textSections.map(async (section) => {
+          const textDoc = section.text_documents as any;
+          // Handle both array and object formats from Supabase
+          const text = Array.isArray(textDoc?.texts) ? textDoc?.texts[0] : textDoc?.texts;
+          const displayContent = textDoc?.display_content;
+          const ragText = textDoc?.rag_text;
+          
+          let gridRows: GridRow[] | null = null;
+          let useCharacterBased = false;
+
+          const hasCharRange =
+            displayContent &&
+            ragText &&
+            section.start_char !== null &&
+            section.end_char !== null &&
+            typeof section.start_char === 'number' &&
+            typeof section.end_char === 'number';
+
+          if (hasCharRange) {
+            try {
+              const allBlockRows: BlockGridRowWithChars[] = htmlToBlockGridRowsWithChars(
+                displayContent!,
+                ragText!
+              );
+              const subset = filterBlockRowsByCharRange(
+                allBlockRows,
+                section.start_char!,
+                section.end_char!
+              );
+              if (subset.length > 0) {
+                gridRows = subset;
+                useCharacterBased = true;
+              }
+            } catch (err) {
+              console.error(`[course-display] Block filtering failed for section ${section.id}:`, err);
+            }
+          }
+
+          if (
+            (!gridRows || gridRows.length === 0) &&
+            displayContent &&
+            section.start_line &&
+            section.end_line
+          ) {
+            const allRows = htmlToGridRows(displayContent, 1);
+            gridRows = extractGridRowRange(allRows, section.start_line, section.end_line);
+            useCharacterBased = false;
+          }
+
+          if (!gridRows && displayContent) {
+            gridRows = htmlToGridRows(displayContent, 1);
+            useCharacterBased = false;
+          }
+
+          return {
+            section,
+            textDoc,
+            text,
+            gridRows,
+            useCharacterBased,
+          };
+        })
+      )
+    : [];
+
   const sidebarSections =
     textSections?.map((section) => {
       const textDoc = section.text_documents as any;
-      const text = textDoc?.texts as any;
-
+      // Handle both array and object formats from Supabase
+      // For one-to-one relationships, Supabase returns an object, not an array
+      const text = Array.isArray(textDoc?.texts) ? textDoc?.texts[0] : (textDoc?.texts || null);
+      
       return {
         id: section.id,
-        title: section.title || text?.title,
-        textTitle: text?.title,
-        startLine: section.start_line,
-        endLine: section.end_line,
+        sectionTitle: section.title || null,
+        textTitle: text?.title || null,
+        textAuthor: text?.author || null,
       };
     }) ?? [];
 
@@ -161,65 +258,53 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
         <div className="flex-1">
           <div className="max-w-7xl mx-auto pr-6 pb-4">
             {/* Display included texts */}
-            {textSections && textSections.length > 0 ? (
+            {processedSections.length > 0 ? (
               <div className="space-y-6">
-              {textSections.map((section) => {
-            const textDoc = section.text_documents as any;
-            const text = textDoc?.texts as any;
-            const displayContent = textDoc?.display_content;
-            
-            // Convert HTML to grid rows and extract the requested range
-            let gridRows: GridRow[] = [];
-            if (displayContent) {
-              // Convert HTML to grid rows (handles <p> splitting and block elements)
-              const allRows = htmlToGridRows(displayContent, 1);
-              // Extract only the requested range
-              gridRows = extractGridRowRange(allRows, section.start_line, section.end_line);
-            }
-            
-              return (
-                <div
-                  key={section.id}
-                  id={`section-${section.id}`}
-                  className="bg-white rounded-lg shadow-sm border overflow-hidden"
-                >
-                <div className="p-4 border-b bg-gray-50">
-                  <div className="font-semibold text-lg text-gray-900">
-                    {section.title || text?.title || 'Untitled Section'}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    {text?.title && (
-                      <>
-                        <span className="font-medium">{text.title}</span>
-                        {text.author && <span> by {text.author}</span>}
-                        {' • '}
-                      </>
-                    )}
-                    {textDoc?.meta?.filename && (
-                      <>
-                        {textDoc.meta.filename}
-                        {' • '}
-                      </>
-                    )}
-                    Lines {section.start_line}–{section.end_line}
-                  </div>
-                </div>
-                
-                {gridRows.length > 0 ? (
-                  <div className="bg-white">
-                    <LineNumberedContent 
-                      gridRows={gridRows}
-                      startLine={section.start_line}
-                    />
-                  </div>
-                ) : (
-                  <div className="p-6 text-sm text-gray-500 italic">
-                    Text content not available. This section may need to be re-ingested.
-                  </div>
-                )}
-                </div>
-              );
-            })}
+                {processedSections
+                  .filter(({ section }) => section && section.id)
+                  .map(({ section, textDoc, text, gridRows, useCharacterBased }) => {
+                    const charCount = section.start_char !== null && section.end_char !== null
+                      ? section.end_char - section.start_char
+                      : null;
+                    
+                    return (
+                      <div
+                        key={section.id}
+                        id={`section-${section.id}`}
+                        className="bg-white rounded-lg shadow-sm border overflow-hidden"
+                      >
+                        <div className="p-4 border-b bg-gray-50">
+                          <div className="font-semibold text-lg text-gray-900">
+                            {text?.title || 'Untitled Text'}
+                            {text?.author && (
+                              <span className="text-gray-600 font-normal">
+                                {' by '}
+                                {text.author}
+                              </span>
+                            )}
+                          </div>
+                          {section.title && (
+                            <div className="text-sm text-gray-600 mt-1">
+                              {section.title}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {gridRows && gridRows.length > 0 ? (
+                          <div className="bg-white">
+                            <LineNumberedContent 
+                              gridRows={gridRows}
+                              startLine={gridRows[0]?.lineNumber || 1}
+                            />
+                          </div>
+                        ) : (
+                          <div className="p-6 text-sm text-gray-500 italic">
+                            Text content not available. This section may need to be re-ingested.
+                          </div>
+                        )}
+                      </div>
+                    );
+                })}
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow-sm border p-6 text-center text-gray-500">
@@ -229,8 +314,6 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
           </div>
         </div>
       </div>
-      
-      <style dangerouslySetInnerHTML={{ __html: generateTextPreviewStyles() }} />
     </main>
   );
 }

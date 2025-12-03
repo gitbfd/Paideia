@@ -45,7 +45,7 @@ export default function DeleteDocumentButton({ textId, documentId, filename }: P
     return (
       <div className="mt-2 p-3 border border-red-300 rounded bg-red-50">
         <div className="text-sm font-medium text-red-800 mb-2">
-          Are you sure you want to delete "{filename || 'this document'}"?
+          Are you sure you want to delete &quot;{filename || 'this document'}&quot;?
         </div>
         <div className="text-xs text-red-700 mb-3">
           This will permanently delete the document, all RAG vectors, and the file from storage. This action cannot be undone.
@@ -79,7 +79,7 @@ export default function DeleteDocumentButton({ textId, documentId, filename }: P
   return (
     <button
       onClick={() => setShowConfirm(true)}
-      className="text-sm text-red-600 hover:text-red-800 hover:underline"
+      className="text-sm text-red-600 hover:text-red-800 hover:underline text-right block"
       type="button"
     >
       Delete

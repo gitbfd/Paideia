@@ -1,6 +1,6 @@
 // src/app/admin/courses/[slug]/text-sections/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientForRoute } from '@/lib/supabase-route';
+import { createClientForRoute } from '@/lib/supabase/route';
 
 // GET /admin/courses/:slug/text-sections
 // Get all text sections for a course
@@ -26,6 +26,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       id,
       start_line,
       end_line,
+      start_char,
+      end_char,
       title,
       order_index,
       created_at,
@@ -53,19 +55,33 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
 // POST /admin/courses/:slug/text-sections
 // Add a text section to a course
+// Accepts either character ranges (preferred) or line ranges (for backward compatibility)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { supabase, applyCookies } = createClientForRoute(req);
   const { slug } = await params;
   const body = await req.json().catch(() => ({}));
-  const { text_document_id, start_line, end_line, title, order_index } = body ?? {};
+  const { 
+    text_document_id, 
+    start_char, 
+    end_char, 
+    title, 
+    order_index 
+  } = body ?? {};
 
-  // Validate required fields
-  if (!text_document_id || !start_line || !end_line) {
-    return applyCookies(NextResponse.json({ error: 'Missing required fields: text_document_id, start_line, end_line' }, { status: 400 }));
+  // Validate required fields - need either character range OR line range
+  if (!text_document_id) {
+    return applyCookies(NextResponse.json({ error: 'Missing required field: text_document_id' }, { status: 400 }));
   }
 
-  if (start_line < 1 || end_line < start_line) {
-    return applyCookies(NextResponse.json({ error: 'Invalid line range' }, { status: 400 }));
+  const hasCharRange = start_char !== undefined && end_char !== undefined;
+  
+  if (!hasCharRange) {
+    return applyCookies(
+      NextResponse.json(
+        { error: 'Missing required fields: start_char and end_char are required' },
+        { status: 400 }
+      )
+    );
   }
 
   // Get course ID from slug
@@ -79,10 +95,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return applyCookies(NextResponse.json({ error: 'Course not found' }, { status: 404 }));
   }
 
-  // Verify text document exists
+  // Get text document with display_content and rag_text
   const { data: doc, error: docError } = await supabase
     .from('text_documents')
-    .select('id')
+    .select('id, display_content, rag_text')
     .eq('id', text_document_id)
     .single();
 
@@ -90,17 +106,39 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return applyCookies(NextResponse.json({ error: 'Text document not found' }, { status: 404 }));
   }
 
+  // Validate character positions
+  const finalStartChar = Number(start_char);
+  const finalEndChar = Number(end_char);
+  
+  if (
+    isNaN(finalStartChar) ||
+    isNaN(finalEndChar) ||
+    finalStartChar < 0 ||
+    finalEndChar <= finalStartChar
+  ) {
+    return applyCookies(
+      NextResponse.json({ error: 'Invalid character range' }, { status: 400 })
+    );
+  }
+
   // Insert text section
+  const insertData: any = {
+    course_id: course.id,
+    text_document_id,
+    title: title || null,
+    order_index: order_index || 0,
+  };
+
+  // Add character positions if available
+  insertData.start_char = finalStartChar;
+  insertData.end_char = finalEndChar;
+  // Explicitly null out line numbers for new sections
+  insertData.start_line = null;
+  insertData.end_line = null;
+
   const { data, error } = await supabase
     .from('course_text_sections')
-    .insert({
-      course_id: course.id,
-      text_document_id,
-      start_line: Number(start_line),
-      end_line: Number(end_line),
-      title: title || null,
-      order_index: order_index || 0,
-    })
+    .insert(insertData)
     .select()
     .single();
 

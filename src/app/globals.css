@@ -25,51 +25,5 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Styles for rendered HTML content in text previews */
-.text-preview-content {
-  color: inherit;
-  font-size: 0.875rem; /* Base font size */
-  line-height: 1.7142857;
-}
-
-.text-preview-content p {
-  margin-top: 1em;
-  margin-bottom: 1em;
-}
-
-.text-preview-content ul, 
-.text-preview-content ol {
-  margin-top: 1em;
-  margin-bottom: 1em;
-  padding-left: 1.5em;
-}
-
-.text-preview-content li {
-  margin-top: 0.5em;
-  margin-bottom: 0.5em;
-}
-
-.text-preview-content code {
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
-  font-size: 0.875em;
-}
-
-.text-preview-content pre {
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 1rem;
-  border-radius: 0.5rem;
-  overflow-x: auto;
-  margin-top: 1em;
-  margin-bottom: 1em;
-}
-
-.text-preview-content blockquote {
-  border-left: 4px solid rgba(0, 0, 0, 0.2);
-  padding-left: 1em;
-  margin-left: 0;
-  font-style: italic;
-  margin-top: 1em;
-  margin-bottom: 1em;
-}
+/* Text preview styles have been moved to src/styles/text-preview.css */
+/* This file is now managed centrally for all preview views */

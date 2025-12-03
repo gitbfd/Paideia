@@ -1,6 +1,6 @@
 // src/app/courses/select/api/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClientForRoute } from '@/lib/supabase-route';
+import { createClientForRoute } from '@/lib/supabase/route';
 
 // POST /courses/select/api
 // Enroll a student in a course
