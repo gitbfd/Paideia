@@ -49,11 +49,11 @@ export default function CourseSectionSidebar({
 
   return (
     <aside
-      className={`sticky top-0 transition-all duration-300 ${
+      className={`sticky top-0 transition-all duration-300 flex flex-col ${
         collapsed ? 'w-10' : 'w-72'
-      } bg-white border border-l-0 rounded-r-lg shadow-sm overflow-hidden`}
+      } bg-white border border-l-0 rounded-r-lg shadow-sm overflow-hidden max-h-screen`}
     >
-      <div className="border-b p-3">
+      <div className="flex-shrink-0 border-b p-3">
         <Link
           href="/student/profile"
           className="flex items-center justify-start rounded-md p-2 transition-colors hover:bg-gray-50"
@@ -70,7 +70,7 @@ export default function CourseSectionSidebar({
       </div>
 
       {!collapsed && (
-        <div className="border-b p-3 space-y-2">
+        <div className="flex-shrink-0 border-b p-3 space-y-2">
           <div>
             <div className="text-sm font-semibold text-gray-900">{courseTitle}</div>
             {courseDescription && (
@@ -87,7 +87,7 @@ export default function CourseSectionSidebar({
         </div>
       )}
 
-      <div className="flex items-center justify-between p-3 border-b">
+      <div className="flex-shrink-0 flex items-center justify-between p-3 border-b">
         {!collapsed && <h2 className="text-sm font-semibold text-gray-700">Sections</h2>}
         <button
           type="button"
@@ -98,48 +98,50 @@ export default function CourseSectionSidebar({
           {collapsed ? '▶' : '◀'}
         </button>
       </div>
-      {collapsed ? (
-        <ul className="flex flex-col items-center py-3 space-y-2">
-          {sections.map((section) => (
-            <li
-              key={section.id}
-              className="w-2 h-2 rounded-full bg-gray-400 cursor-pointer hover:bg-blue-500 transition-colors"
-              onClick={() => handleNavigate(section.id)}
-            />
-          ))}
-        </ul>
-      ) : (
-        <ul className="divide-y">
-          {sections.map((section) => (
-            <li
-              key={section.id}
-              className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
-              onClick={() => handleNavigate(section.id)}
-            >
-              <div className="text-sm font-semibold text-gray-900 truncate">
-                {section.textTitle ? (
-                  <>
-                    {section.textTitle}
-                    {section.textAuthor && (
-                      <span className="text-gray-600 font-normal">
-                        {' by '}
-                        {section.textAuthor}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  'Untitled Text'
-                )}
-              </div>
-              {section.sectionTitle && (
-                <div className="text-xs text-gray-500 truncate">
-                  {section.sectionTitle}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {collapsed ? (
+          <ul className="flex flex-col items-center py-3 space-y-2">
+            {sections.map((section) => (
+              <li
+                key={section.id}
+                className="w-2 h-2 rounded-full bg-gray-400 cursor-pointer hover:bg-blue-500 transition-colors"
+                onClick={() => handleNavigate(section.id)}
+              />
+            ))}
+          </ul>
+        ) : (
+          <ul className="divide-y">
+            {sections.map((section) => (
+              <li
+                key={section.id}
+                className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={() => handleNavigate(section.id)}
+              >
+                <div className="text-sm font-semibold text-gray-900 truncate">
+                  {section.textTitle ? (
+                    <>
+                      {section.textTitle}
+                      {section.textAuthor && (
+                        <span className="text-gray-600 font-normal">
+                          {' by '}
+                          {section.textAuthor}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    'Untitled Text'
+                  )}
                 </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                {section.sectionTitle && (
+                  <div className="text-xs text-gray-500 truncate">
+                    {section.sectionTitle}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </aside>
   );
 }

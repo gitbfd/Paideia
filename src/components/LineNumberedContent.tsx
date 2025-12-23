@@ -1,36 +1,35 @@
 // src/components/LineNumberedContent.tsx
 'use client';
 
-import { previewStylesConfig, type GridRow } from '@/lib/display';
+import { type GridRow } from '@/lib/display';
 
 type Props = {
   gridRows?: GridRow[]; // Grid rows to display (line-based approach)
   startLine?: number; // Starting line number (defaults to 1)
-  // Legacy props for backward compatibility (will be removed)
-  content?: string;
-  lineCount?: number;
-  useExactLineCount?: boolean;
 };
 
 export default function LineNumberedContent({ 
   gridRows,
   startLine = 1,
-  // Legacy props
-  content,
-  lineCount,
-  useExactLineCount
 }: Props) {
-  // If gridRows is provided, use the line-based grid approach
-  if (gridRows && gridRows.length > 0) {
-    // Find first and last <p> tags for margin styling
-    const pTagIndices: number[] = [];
-    gridRows.forEach((row, index) => {
-      if (row.content.includes('<p') && !row.isBlockElement) {
-        pTagIndices.push(index);
-      }
-    });
-
+  if (!gridRows || gridRows.length === 0) {
     return (
+      <div className="p-6 text-sm text-gray-500 italic">
+        No content available.
+      </div>
+    );
+  }
+
+  // Use the line-based grid approach
+  // Find first and last <p> tags for margin styling
+  const pTagIndices: number[] = [];
+  gridRows.forEach((row, index) => {
+    if (row.content.includes('<p') && !row.isBlockElement) {
+      pTagIndices.push(index);
+    }
+  });
+
+  return (
       <div className="text-preview-with-lines-grid">
         <div className="text-preview-grid-container">
           {gridRows.map((row, index) => {
@@ -72,22 +71,6 @@ export default function LineNumberedContent({
           })}
         </div>
       </div>
-    );
-  }
-
-  // Legacy support: fall back to old approach if content is provided
-  // This maintains backward compatibility with the preview page
-  // TODO: Update preview page to use gridRows as well
-  return (
-    <div className="text-preview-with-lines">
-      <div className="text-preview-content-wrapper">
-        <div
-          className="p-6 font-serif leading-relaxed text-preview-content max-w-none"
-          style={{ lineHeight: String(previewStylesConfig.baseLineHeight) }}
-          dangerouslySetInnerHTML={{ __html: content || '' }}
-        />
-      </div>
-    </div>
   );
 }
 

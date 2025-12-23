@@ -37,6 +37,18 @@ type TextSection = {
   };
 };
 
+type AssessmentModule = {
+  id: string;
+  title: string;
+  description: string | null;
+  question_type: 'definition' | 'socratic' | 'multiple_choice' | 'short_answer';
+  order_index: number;
+};
+
+type CourseItem = 
+  | { type: 'text_section'; data: TextSection }
+  | { type: 'assessment_module'; data: AssessmentModule };
+
 type Props = {
   courseSlug: string;
 };
@@ -45,6 +57,8 @@ export default function AddTextSection({ courseSlug }: Props) {
   const router = useRouter();
   const [texts, setTexts] = useState<Text[]>([]);
   const [sections, setSections] = useState<TextSection[]>([]);
+  const [assessmentModules, setAssessmentModules] = useState<AssessmentModule[]>([]);
+  const [items, setItems] = useState<CourseItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -58,14 +72,25 @@ export default function AddTextSection({ courseSlug }: Props) {
   const [blockCount, setBlockCount] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [initialSectionsSnapshot, setInitialSectionsSnapshot] = useState<TextSection[] | null>(null);
+  const [initialItemsSnapshot, setInitialItemsSnapshot] = useState<CourseItem[] | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const sectionsRef = useRef<TextSection[]>(sections);
+  const itemsRef = useRef<CourseItem[]>(items);
   const dropHandledRef = useRef(false);
 
   useEffect(() => {
-    sectionsRef.current = sections;
-  }, [sections]);
+    itemsRef.current = items;
+  }, [items]);
+
+  // Combine sections and assessment modules into unified items array
+  useEffect(() => {
+    const combined: CourseItem[] = [
+      ...sections.map(s => ({ type: 'text_section' as const, data: s })),
+      ...assessmentModules.map(m => ({ type: 'assessment_module' as const, data: m }))
+    ];
+    // Sort by order_index
+    combined.sort((a, b) => a.data.order_index - b.data.order_index);
+    setItems(combined);
+  }, [sections, assessmentModules]);
 
   // Load available texts and existing sections
   useEffect(() => {
@@ -91,6 +116,14 @@ export default function AddTextSection({ courseSlug }: Props) {
         throw new Error(sectionsData.error || 'Failed to load sections');
       }
       setSections(sectionsData.sections || []);
+
+      // Load assessment modules
+      const modulesRes = await fetch(`/admin/courses/${courseSlug}/assessment-modules/api`);
+      const modulesData = await modulesRes.json();
+      if (!modulesRes.ok) {
+        throw new Error(modulesData.error || 'Failed to load assessment modules');
+      }
+      setAssessmentModules(modulesData.modules || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
     } finally {
@@ -178,7 +211,7 @@ export default function AddTextSection({ courseSlug }: Props) {
           start_char: charRange.start_char,
           end_char: charRange.end_char,
           title: sectionTitle || null,
-          order_index: sections.length,
+          order_index: items.length,
         }),
       });
 
@@ -227,14 +260,35 @@ export default function AddTextSection({ courseSlug }: Props) {
     }
   }
 
+  async function handleDeleteAssessmentModule(moduleId: string) {
+    if (!confirm('Are you sure you want to remove this assessment module from the course?')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/admin/courses/${courseSlug}/assessment-modules/${moduleId}`, {
+        method: 'DELETE',
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to delete assessment module');
+      }
+
+      await loadData();
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete assessment module');
+    }
+  }
+
   function handleDragStart(e: React.DragEvent, index: number) {
     setDraggedIndex(index);
-    setInitialSectionsSnapshot(sections.map(section => ({ ...section })));
+    setInitialItemsSnapshot(items.map(item => ({ ...item })));
     setIsDragging(true);
     dropHandledRef.current = false;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(index));
-    // Use default browser drag image - it's cleaner
   }
 
   function handleDragOver(e: React.DragEvent, index: number) {
@@ -247,12 +301,12 @@ export default function AddTextSection({ courseSlug }: Props) {
       return;
     }
 
-    setSections(prevSections => {
-      const newSections = [...prevSections];
-      const [draggedSection] = newSections.splice(draggedIndex, 1);
-      newSections.splice(index, 0, draggedSection);
-      sectionsRef.current = newSections;
-      return newSections;
+    setItems(prevItems => {
+      const newItems = [...prevItems];
+      const [draggedItem] = newItems.splice(draggedIndex, 1);
+      newItems.splice(index, 0, draggedItem);
+      itemsRef.current = newItems;
+      return newItems;
     });
 
     setDraggedIndex(index);
@@ -281,24 +335,39 @@ export default function AddTextSection({ courseSlug }: Props) {
       return;
     }
 
-    // Update order_index for all affected sections
+    // Update order_index for all affected items
     const updates: Promise<void>[] = [];
-    const currentSections = sectionsRef.current;
+    const currentItems = itemsRef.current;
 
-    currentSections.forEach((section, index) => {
-      if (section.order_index !== index) {
-        updates.push(
-          fetch(`/admin/courses/${courseSlug}/text-sections/${section.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order_index: index }),
-          }).then(async (res) => {
-            const json = await res.json();
-            if (!res.ok) {
-              throw new Error(json.error || 'Failed to update section order');
-            }
-          })
-        );
+    currentItems.forEach((item, index) => {
+      if (item.data.order_index !== index) {
+        if (item.type === 'text_section') {
+          updates.push(
+            fetch(`/admin/courses/${courseSlug}/text-sections/${item.data.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ order_index: index }),
+            }).then(async (res) => {
+              const json = await res.json();
+              if (!res.ok) {
+                throw new Error(json.error || 'Failed to update section order');
+              }
+            })
+          );
+        } else if (item.type === 'assessment_module') {
+          updates.push(
+            fetch(`/admin/courses/${courseSlug}/assessment-modules/${item.data.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ order_index: index }),
+            }).then(async (res) => {
+              const json = await res.json();
+              if (!res.ok) {
+                throw new Error(json.error || 'Failed to update assessment module order');
+              }
+            })
+          );
+        }
       }
     });
 
@@ -309,25 +378,25 @@ export default function AddTextSection({ courseSlug }: Props) {
       await loadData();
       router.refresh();
     } catch (err: any) {
-      setError(err.message || 'Failed to reorder sections');
+      setError(err.message || 'Failed to reorder items');
       await loadData();
     } finally {
       setDraggedIndex(null);
-      setInitialSectionsSnapshot(null);
+      setInitialItemsSnapshot(null);
       setIsDragging(false);
     }
   }
 
   function handleDragEnd() {
-    if (!dropHandledRef.current && initialSectionsSnapshot) {
-      const snapshotClone = initialSectionsSnapshot.map(section => ({ ...section }));
-      setSections(snapshotClone);
-      sectionsRef.current = snapshotClone;
+    if (!dropHandledRef.current && initialItemsSnapshot) {
+      const snapshotClone = initialItemsSnapshot.map(item => ({ ...item }));
+      setItems(snapshotClone);
+      itemsRef.current = snapshotClone;
     }
     dropHandledRef.current = false;
     setDraggedIndex(null);
     setDragOverIndex(null);
-    setInitialSectionsSnapshot(null);
+    setInitialItemsSnapshot(null);
     setIsDragging(false);
   }
 
@@ -351,15 +420,12 @@ export default function AddTextSection({ courseSlug }: Props) {
             >
               + Add Text Section
             </button>
-            <button
-              onClick={() => {
-                // TODO: Handle Add Assessment Module
-                console.log('Add Assessment Module clicked');
-              }}
-              className="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+            <Link
+              href={`/admin/assessment-modules/new?course_slug=${courseSlug}`}
+              className="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block"
             >
               + Add Assessment Module
-            </button>
+            </Link>
           </div>
         )}
       </div>
@@ -574,12 +640,12 @@ export default function AddTextSection({ courseSlug }: Props) {
         </form>
       )}
 
-      {sections.length > 0 && (
+      {items.length > 0 && (
         <div className="border-t pt-4">
           <ul className="space-y-2">
-            {sections.map((section, index) => (
+            {items.map((item, index) => (
               <li
-                key={section.id}
+                key={`${item.type}-${item.data.id}`}
                 draggable
                 onDragStart={(e) => handleDragStart(e, index)}
                 onDragOver={(e) => handleDragOver(e, index)}
@@ -594,7 +660,7 @@ export default function AddTextSection({ courseSlug }: Props) {
                     : draggedIndex !== null && draggedIndex !== index
                     ? 'hover:bg-gray-50'
                     : 'hover:bg-gray-50'
-                }`}
+                } ${item.type === 'assessment_module' ? 'bg-purple-50 border-purple-200' : ''}`}
               >
                 <div className="flex-shrink-0 text-gray-400 cursor-grab active:cursor-grabbing">
                   <svg
@@ -613,63 +679,93 @@ export default function AddTextSection({ courseSlug }: Props) {
                   </svg>
                 </div>
                 <div className="flex-1 space-y-2">
-                  {(() => {
-                    const rangeLabel =
-                      section.start_char !== null && section.end_char !== null
-                        ? `Chars ${section.start_char.toLocaleString()}-${section.end_char.toLocaleString()}`
-                        : section.start_line !== null && section.end_line !== null
-                        ? `Lines ${section.start_line}-${section.end_line}`
-                        : 'Range not specified';
-                    const textTitle = section.text_documents.texts?.title;
-                    const textAuthor = section.text_documents.texts?.author;
-                    const filename = section.text_documents.meta?.filename || 'Document';
-                    return (
-                      <>
-                        <div className="font-medium text-gray-500 group-hover:text-black transition-colors">
-                          {section.title || `${textTitle || 'Untitled'} (${rangeLabel})`}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {textTitle}
-                          {textAuthor && ` by ${textAuthor}`}
-                          {' • '}
-                          {filename}
-                          {' • '}
-                          {rangeLabel}
-                        </div>
-                      </>
-                    );
-                  })()}
-                  <div className="flex flex-wrap gap-4 text-sm text-blue-600">
-                    <Link
-                      href={`/admin/courses/${courseSlug}/text-sections/${section.id}/preview/display`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline"
-                    >
-                      Preview Display
-                    </Link>
-                    <Link
-                      href={`/admin/courses/${courseSlug}/text-sections/${section.id}/preview/rag`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline"
-                    >
-                      Preview RAG
-                    </Link>
-                    <Link
-                      href={`/admin/courses/${courseSlug}/text-sections/${section.id}/edit`}
-                      className="hover:underline"
-                    >
-                      Edit Metadata
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(section.id)}
-                      className="text-red-600 hover:underline"
-                    >
-                      Remove Text
-                    </button>
-                  </div>
+                  {item.type === 'text_section' ? (
+                    <>
+                      {(() => {
+                        const section = item.data;
+                        const rangeLabel =
+                          section.start_char !== null && section.end_char !== null
+                            ? `Chars ${section.start_char.toLocaleString()}-${section.end_char.toLocaleString()}`
+                            : section.start_line !== null && section.end_line !== null
+                            ? `Lines ${section.start_line}-${section.end_line}`
+                            : 'Range not specified';
+                        const textTitle = section.text_documents.texts?.title;
+                        const textAuthor = section.text_documents.texts?.author;
+                        const filename = section.text_documents.meta?.filename || 'Document';
+                        return (
+                          <>
+                            <div className="font-medium text-gray-500 group-hover:text-black transition-colors">
+                              {section.title || `${textTitle || 'Untitled'} (${rangeLabel})`}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {textTitle}
+                              {textAuthor && ` by ${textAuthor}`}
+                              {' • '}
+                              {filename}
+                              {' • '}
+                              {rangeLabel}
+                            </div>
+                          </>
+                        );
+                      })()}
+                      <div className="flex flex-wrap gap-4 text-sm text-blue-600">
+                        <Link
+                          href={`/admin/courses/${courseSlug}/text-sections/${item.data.id}/preview/display`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          Preview Display
+                        </Link>
+                        <Link
+                          href={`/admin/courses/${courseSlug}/text-sections/${item.data.id}/preview/rag`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          Preview RAG
+                        </Link>
+                        <Link
+                          href={`/admin/courses/${courseSlug}/text-sections/${item.data.id}/edit`}
+                          className="hover:underline"
+                        >
+                          Edit Metadata
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item.data.id)}
+                          className="text-red-600 hover:underline"
+                        >
+                          Remove Text
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="font-medium text-purple-700 group-hover:text-purple-900 transition-colors">
+                        📝 {item.data.title}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Assessment Module • {item.data.question_type.replace('_', ' ')}
+                        {item.data.description && ` • ${item.data.description}`}
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-sm text-blue-600">
+                        <Link
+                          href={`/admin/assessment-modules/${item.data.id}/edit`}
+                          className="hover:underline"
+                        >
+                          Edit Assessment Module
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAssessmentModule(item.data.id)}
+                          className="text-red-600 hover:underline"
+                        >
+                          Remove Assessment Module
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div
                   className="flex items-center gap-2 flex-shrink-0 text-gray-400 px-1 select-none leading-none"
@@ -684,9 +780,9 @@ export default function AddTextSection({ courseSlug }: Props) {
         </div>
       )}
 
-      {sections.length === 0 && !showAddForm && (
+      {items.length === 0 && !showAddForm && (
         <div className="text-sm text-gray-500 text-center py-4">
-          No text sections added yet. Click "Add Text Section" to include text content in this course.
+          No sections or assessment modules added yet. Click "Add Text Section" or "Add Assessment Module" to get started.
         </div>
       )}
     </div>

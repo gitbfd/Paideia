@@ -102,16 +102,22 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
     console.error('[courses/[slug]] Error fetching text sections:', sectionsError);
   }
 
+  // Filter out invalid sections first to ensure stable array length for hydration
+  // Ensure section.id is a valid non-null string to prevent hydration mismatches
+  const validSections = (textSections || []).filter(
+    (section) => section && section.id && typeof section.id === 'string' && section.id.length > 0
+  );
+
   // Calculate total line count and character count for potential display
   const stats = (() => {
-    if (!textSections || textSections.length === 0) {
+    if (!validSections || validSections.length === 0) {
       return { sectionCount: 0, lineCount: 0, charCount: 0 };
     }
 
     let totalLineCount = 0;
     let totalCharCount = 0;
 
-    textSections.forEach((section) => {
+    validSections.forEach((section) => {
       const textDoc = section.text_documents as any;
       const displayContent = textDoc?.display_content;
 
@@ -124,7 +130,7 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
     });
 
     return {
-      sectionCount: textSections.length,
+      sectionCount: validSections.length,
       lineCount: totalLineCount,
       charCount: totalCharCount,
     };
@@ -137,9 +143,9 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
     text: any;
     gridRows: GridRow[] | null;
     useCharacterBased: boolean;
-  }> = textSections && textSections.length > 0
+  }> = validSections.length > 0
     ? await Promise.all(
-        textSections.map(async (section) => {
+        validSections.map(async (section) => {
           const textDoc = section.text_documents as any;
           // Handle both array and object formats from Supabase
           const text = Array.isArray(textDoc?.texts) ? textDoc?.texts[0] : textDoc?.texts;
@@ -258,19 +264,21 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
         <div className="flex-1">
           <div className="max-w-7xl mx-auto pr-6 pb-4">
             {/* Display included texts */}
-            {processedSections.length > 0 ? (
+            {processedSections && processedSections.length > 0 ? (
               <div className="space-y-6">
                 {processedSections
-                  .filter(({ section }) => section && section.id)
+                  .filter(({ section }) => section?.id && typeof section.id === 'string' && section.id.length > 0)
                   .map(({ section, textDoc, text, gridRows, useCharacterBased }) => {
                     const charCount = section.start_char !== null && section.end_char !== null
                       ? section.end_char - section.start_char
                       : null;
                     
+                    const sectionId = String(section.id);
+                    
                     return (
                       <div
-                        key={section.id}
-                        id={`section-${section.id}`}
+                        key={sectionId}
+                        id={`section-${sectionId}`}
                         className="bg-white rounded-lg shadow-sm border overflow-hidden"
                       >
                         <div className="p-4 border-b bg-gray-50">
@@ -290,7 +298,7 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
                           )}
                         </div>
                         
-                        {gridRows && gridRows.length > 0 ? (
+                        {gridRows && Array.isArray(gridRows) && gridRows.length > 0 ? (
                           <div className="bg-white">
                             <LineNumberedContent 
                               gridRows={gridRows}
@@ -307,7 +315,7 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
                 })}
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border p-6 text-center text-gray-500">
+              <div className="bg-white rounded-lg shadow-sm border p-6 text-center text-gray-500" suppressHydrationWarning>
                 No text sections available for this course.
               </div>
             )}
