@@ -22,12 +22,15 @@ type TextSection = {
   end_line: number | null;
   start_char: number | null;
   end_char: number | null;
+  start_block: number | null;
+  end_block: number | null;
   title?: string;
   order_index: number;
   text_document_id: string;
   text_documents: {
     id: string;
     meta?: { filename?: string };
+    display_content?: string | null;
     text_id: string;
     texts?: {
       id: string;
@@ -52,6 +55,38 @@ type CourseItem =
 type Props = {
   courseSlug: string;
 };
+
+/**
+ * Formats a range label, prioritizing stored block numbers
+ */
+function formatRangeLabel(
+  section: TextSection
+): string {
+  // Use stored block numbers if available (preferred)
+  // Check both for null/undefined and that they're valid numbers
+  if (
+    section.start_block !== null && 
+    section.start_block !== undefined &&
+    section.end_block !== null && 
+    section.end_block !== undefined &&
+    typeof section.start_block === 'number' &&
+    typeof section.end_block === 'number'
+  ) {
+    return `Blocks ${section.start_block.toLocaleString()}-${section.end_block.toLocaleString()}`;
+  }
+
+  // Fallback to character range
+  if (section.start_char !== null && section.end_char !== null) {
+    return `Chars ${section.start_char.toLocaleString()}-${section.end_char.toLocaleString()}`;
+  }
+
+  // Fallback to line range
+  if (section.start_line !== null && section.end_line !== null) {
+    return `Lines ${section.start_line}-${section.end_line}`;
+  }
+
+  return 'Range not specified';
+}
 
 export default function AddTextSection({ courseSlug }: Props) {
   const router = useRouter();
@@ -210,6 +245,8 @@ export default function AddTextSection({ courseSlug }: Props) {
           text_document_id: selectedDocumentId,
           start_char: charRange.start_char,
           end_char: charRange.end_char,
+          start_block: start,
+          end_block: end,
           title: sectionTitle || null,
           order_index: items.length,
         }),
@@ -660,7 +697,7 @@ export default function AddTextSection({ courseSlug }: Props) {
                     : draggedIndex !== null && draggedIndex !== index
                     ? 'hover:bg-gray-50'
                     : 'hover:bg-gray-50'
-                } ${item.type === 'assessment_module' ? 'bg-purple-50 border-purple-200' : ''}`}
+                }`}
               >
                 <div className="flex-shrink-0 text-gray-400 cursor-grab active:cursor-grabbing">
                   <svg
@@ -683,12 +720,7 @@ export default function AddTextSection({ courseSlug }: Props) {
                     <>
                       {(() => {
                         const section = item.data;
-                        const rangeLabel =
-                          section.start_char !== null && section.end_char !== null
-                            ? `Chars ${section.start_char.toLocaleString()}-${section.end_char.toLocaleString()}`
-                            : section.start_line !== null && section.end_line !== null
-                            ? `Lines ${section.start_line}-${section.end_line}`
-                            : 'Range not specified';
+                        const rangeLabel = formatRangeLabel(section);
                         const textTitle = section.text_documents.texts?.title;
                         const textAuthor = section.text_documents.texts?.author;
                         const filename = section.text_documents.meta?.filename || 'Document';
@@ -742,8 +774,8 @@ export default function AddTextSection({ courseSlug }: Props) {
                     </>
                   ) : (
                     <>
-                      <div className="font-medium text-purple-700 group-hover:text-purple-900 transition-colors">
-                        📝 {item.data.title}
+                      <div className="font-medium text-gray-500 group-hover:text-black transition-colors">
+                        {item.data.title}
                       </div>
                       <div className="text-sm text-gray-600">
                         Assessment Module • {item.data.question_type.replace('_', ' ')}

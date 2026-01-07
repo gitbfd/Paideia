@@ -13,23 +13,13 @@ export async function middleware(req: NextRequest) {
   if (pathname === '/admin/login') return res;
 
   const cookieMethods: CookieMethodsServer = {
-    get(name) {
-      return req.cookies.get(name)?.value;
-    },
     getAll() {
-      const all = req.cookies.getAll();
-      return all?.map((c) => ({ name: c.name, value: c.value })) ?? [];
-    },
-    set(name, value, options) {
-      res.cookies.set({ name, value, ...options });
+      return req.cookies.getAll().map((c) => ({ name: c.name, value: c.value }));
     },
     setAll(cookies) {
       cookies.forEach((c) => {
         res.cookies.set({ name: c.name, value: c.value, ...c.options });
       });
-    },
-    remove(name, options) {
-      res.cookies.set({ name, value: '', ...options, maxAge: 0 });
     },
   };
 

@@ -3,5 +3,5 @@
 
 export { chunkText } from './chunker';
 export { embedText } from './embeddings';
-export { extractCharRangeForBlock, extractCharRangeForBlockRange, extractAllBlockCharRanges } from './extract-char-ranges-from-blocks';
+export { extractCharRangeForBlock, extractCharRangeForBlockRange, extractAllBlockCharRanges, convertCharRangeToBlockRange } from './extract-char-ranges-from-blocks';
 

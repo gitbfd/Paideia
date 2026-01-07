@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 type SectionLink = {
   id: string;
+  type?: 'text_section' | 'assessment_module';
   sectionTitle?: string | null;
   textTitle?: string | null;
   textAuthor?: string | null;
@@ -40,8 +41,11 @@ export default function CourseSectionSidebar({
     return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
   }, [profileName]);
 
-  function handleNavigate(sectionId: string) {
-    const el = document.getElementById(`section-${sectionId}`);
+  function handleNavigate(section: SectionLink) {
+    const id = section.type === 'assessment_module' 
+      ? `assessment-module-${section.id}`
+      : `section-${section.id}`;
+    const el = document.getElementById(id);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -98,49 +102,66 @@ export default function CourseSectionSidebar({
           {collapsed ? '▶' : '◀'}
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {collapsed ? (
-          <ul className="flex flex-col items-center py-3 space-y-2">
-            {sections.map((section) => (
-              <li
-                key={section.id}
-                className="w-2 h-2 rounded-full bg-gray-400 cursor-pointer hover:bg-blue-500 transition-colors"
-                onClick={() => handleNavigate(section.id)}
-              />
-            ))}
-          </ul>
-        ) : (
-          <ul className="divide-y">
-            {sections.map((section) => (
-              <li
-                key={section.id}
-                className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                onClick={() => handleNavigate(section.id)}
-              >
-                <div className="text-sm font-semibold text-gray-900 truncate">
-                  {section.textTitle ? (
-                    <>
-                      {section.textTitle}
-                      {section.textAuthor && (
-                        <span className="text-gray-600 font-normal">
-                          {' by '}
-                          {section.textAuthor}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    'Untitled Text'
-                  )}
-                </div>
-                {section.sectionTitle && (
-                  <div className="text-xs text-gray-500 truncate">
-                    {section.sectionTitle}
+      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-dark-thumb">
+      {collapsed ? (
+        <ul className="flex flex-col items-center py-3 space-y-2">
+          {sections.map((section) => (
+            <li
+              key={section.id}
+              className={`w-2 h-2 rounded-full cursor-pointer transition-colors ${
+                section.type === 'assessment_module' 
+                  ? 'bg-purple-400 hover:bg-purple-500' 
+                  : 'bg-gray-400 hover:bg-blue-500'
+              }`}
+              onClick={() => handleNavigate(section)}
+            />
+          ))}
+        </ul>
+      ) : (
+        <ul className="divide-y">
+          {sections.map((section) => (
+            <li
+              key={section.id}
+              className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+              onClick={() => handleNavigate(section)}
+            >
+              {section.type === 'assessment_module' ? (
+                <>
+                  <div className="text-sm font-semibold text-gray-900 truncate">
+                    {section.sectionTitle || 'Assessment Module'}
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+                  <div className="text-xs text-gray-500 truncate">
+                    Assessment Module
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xs text-gray-500 truncate">
+                    {section.textTitle ? (
+                      <>
+                        {section.textTitle}
+                        {section.textAuthor && (
+                          <span className="text-gray-400 font-normal">
+                            {' by '}
+                            {section.textAuthor}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      'Untitled Text'
+                    )}
+                  </div>
+                  {section.sectionTitle && (
+                    <div className="text-sm text-black truncate">
+                      {section.sectionTitle}
+                    </div>
+                  )}
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       </div>
     </aside>
   );

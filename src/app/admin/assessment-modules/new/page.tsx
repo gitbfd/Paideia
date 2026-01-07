@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { createClientBrowser } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -10,7 +10,7 @@ type Course = {
   slug: string;
 };
 
-export default function NewAssessmentModulePage() {
+function NewAssessmentModuleForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClientBrowser();
@@ -22,6 +22,7 @@ export default function NewAssessmentModulePage() {
   const [questionType, setQuestionType] = useState<'definition' | 'socratic' | 'multiple_choice' | 'short_answer'>('short_answer');
   const [questionCount, setQuestionCount] = useState(5);
   const [questionPrompt, setQuestionPrompt] = useState('');
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [loading, setLoading] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +97,7 @@ export default function NewAssessmentModulePage() {
     const config = {
       question_prompt: questionPrompt || undefined,
       question_count: questionCount,
-      difficulty: 'medium',
+      difficulty: difficulty,
       allow_multiple_attempts: true,
     };
 
@@ -117,7 +118,11 @@ export default function NewAssessmentModulePage() {
     setLoading(false);
 
     if (!res.ok) {
-      setError(json.error || 'Failed to create assessment module');
+      // Show detailed error message
+      const errorMsg = json.error || 'Failed to create assessment module';
+      const details = json.details ? `\n\nDetails: ${JSON.stringify(json.details, null, 2)}` : '';
+      setError(errorMsg + details);
+      console.error('Assessment module creation error:', json);
       return;
     }
 
@@ -235,6 +240,23 @@ export default function NewAssessmentModulePage() {
         </div>
 
         <div>
+          <label className="block text-sm font-medium mb-1">Difficulty *</label>
+          <select
+            className="border p-2 w-full"
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
+            disabled={loading}
+          >
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+          <p className="text-sm text-gray-500 mt-1">
+            Controls the complexity level of generated questions
+          </p>
+        </div>
+
+        <div>
           <label className="block text-sm font-medium mb-1">Question Generation Prompt</label>
           <textarea
             className="border p-2 w-full"
@@ -267,6 +289,14 @@ export default function NewAssessmentModulePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function NewAssessmentModulePage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading...</div>}>
+      <NewAssessmentModuleForm />
+    </Suspense>
   );
 }
 

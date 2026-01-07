@@ -13,6 +13,8 @@ import {
 import '@/styles/text-preview.css';
 import type { Metadata } from 'next';
 import CourseSectionSidebar from '@/components/CourseSectionSidebar';
+import AssessmentModule from '@/components/AssessmentModule';
+import CoursesPageScrollbar from '@/components/CoursesPageScrollbar';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const supabase = await createClientServer();
@@ -100,6 +102,24 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
 
   if (sectionsError) {
     console.error('[courses/[slug]] Error fetching text sections:', sectionsError);
+  }
+
+  // Fetch assessment modules for this course
+  const { data: assessmentModules, error: modulesError } = await supabase
+    .from('assessment_modules')
+    .select(`
+      id,
+      title,
+      description,
+      question_type,
+      order_index,
+      config
+    `)
+    .eq('course_id', course.id)
+    .order('order_index', { ascending: true });
+
+  if (modulesError) {
+    console.error('[courses/[slug]] Error fetching assessment modules:', modulesError);
   }
 
   // Filter out invalid sections first to ensure stable array length for hydration
@@ -210,8 +230,9 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
       )
     : [];
 
-  const sidebarSections =
-    textSections?.map((section) => {
+  // Combine text sections and assessment modules for sidebar
+  const sidebarSections = [
+    ...(textSections?.map((section) => {
       const textDoc = section.text_documents as any;
       // Handle both array and object formats from Supabase
       // For one-to-one relationships, Supabase returns an object, not an array
@@ -219,14 +240,27 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
       
       return {
         id: section.id,
+        type: 'text_section' as const,
         sectionTitle: section.title || null,
         textTitle: text?.title || null,
         textAuthor: text?.author || null,
+        order_index: section.order_index,
       };
-    }) ?? [];
+    }) ?? []),
+    ...(assessmentModules?.map((module) => ({
+      id: module.id,
+      type: 'assessment_module' as const,
+      sectionTitle: module.title,
+      textTitle: null,
+      textAuthor: null,
+      order_index: module.order_index,
+    })) ?? []),
+  ].sort((a, b) => a.order_index - b.order_index);
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <>
+      <CoursesPageScrollbar />
+      <main className="min-h-screen bg-gray-50">
       <div className="bg-white border-b shadow-sm p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
@@ -263,65 +297,104 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
         )}
         <div className="flex-1">
           <div className="max-w-7xl mx-auto pr-6 pb-4">
-            {/* Display included texts */}
-            {processedSections && processedSections.length > 0 ? (
-              <div className="space-y-6">
-                {processedSections
-                  .filter(({ section }) => section?.id && typeof section.id === 'string' && section.id.length > 0)
-                  .map(({ section, textDoc, text, gridRows, useCharacterBased }) => {
-                    const charCount = section.start_char !== null && section.end_char !== null
-                      ? section.end_char - section.start_char
-                      : null;
-                    
-                    const sectionId = String(section.id);
-                    
-                    return (
-                      <div
-                        key={sectionId}
-                        id={`section-${sectionId}`}
-                        className="bg-white rounded-lg shadow-sm border overflow-hidden"
-                      >
-                        <div className="p-4 border-b bg-gray-50">
-                          <div className="font-semibold text-lg text-gray-900">
-                            {text?.title || 'Untitled Text'}
-                            {text?.author && (
-                              <span className="text-gray-600 font-normal">
-                                {' by '}
-                                {text.author}
-                              </span>
+            {/* Display included texts and assessment modules */}
+            {(() => {
+              // Create unified list of items (text sections + assessment modules) sorted by order_index
+              type CourseItem = 
+                | { type: 'text_section'; data: typeof processedSections[0]; order_index: number }
+                | { type: 'assessment_module'; data: NonNullable<typeof assessmentModules>[0]; order_index: number };
+
+              const allItems: CourseItem[] = [
+                ...processedSections.map((item) => ({
+                  type: 'text_section' as const,
+                  data: item,
+                  order_index: item.section.order_index,
+                })),
+                ...(assessmentModules || []).map((module) => ({
+                  type: 'assessment_module' as const,
+                  data: module,
+                  order_index: module.order_index,
+                })),
+              ].sort((a, b) => a.order_index - b.order_index);
+
+              if (allItems.length === 0) {
+                return (
+                  <div className="bg-white rounded-lg shadow-sm border p-6 text-center text-gray-500">
+                    No content available for this course.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-6">
+                  {allItems.map((item) => {
+                    if (item.type === 'text_section') {
+                      const { section, textDoc, text, gridRows } = item.data;
+                      if (!section?.id || typeof section.id !== 'string' || section.id.length === 0) {
+                        return null;
+                      }
+
+                      const sectionId = String(section.id);
+                      
+                      return (
+                        <div
+                          key={`text-${sectionId}`}
+                          id={`section-${sectionId}`}
+                          className="bg-white rounded-lg shadow-sm border overflow-hidden"
+                        >
+                          <div className="p-4 border-b bg-gray-50">
+                            <div className="font-semibold text-lg text-gray-900">
+                              {text?.title || 'Untitled Text'}
+                              {text?.author && (
+                                <span className="text-gray-600 font-normal">
+                                  {' by '}
+                                  {text.author}
+                                </span>
+                              )}
+                            </div>
+                            {section.title && (
+                              <div className="text-sm text-gray-600 mt-1">
+                                {section.title}
+                              </div>
                             )}
                           </div>
-                          {section.title && (
-                            <div className="text-sm text-gray-600 mt-1">
-                              {section.title}
+                          
+                          {gridRows && Array.isArray(gridRows) && gridRows.length > 0 ? (
+                            <div className="bg-white">
+                              <LineNumberedContent 
+                                gridRows={gridRows}
+                                startLine={gridRows[0]?.lineNumber || 1}
+                              />
+                            </div>
+                          ) : (
+                            <div className="p-6 text-sm text-gray-500 italic">
+                              Text content not available. This section may need to be re-ingested.
                             </div>
                           )}
                         </div>
-                        
-                        {gridRows && Array.isArray(gridRows) && gridRows.length > 0 ? (
-                          <div className="bg-white">
-                            <LineNumberedContent 
-                              gridRows={gridRows}
-                              startLine={gridRows[0]?.lineNumber || 1}
-                            />
-                          </div>
-                        ) : (
-                          <div className="p-6 text-sm text-gray-500 italic">
-                            Text content not available. This section may need to be re-ingested.
-                          </div>
-                        )}
-                      </div>
-                    );
-                })}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-sm border p-6 text-center text-gray-500" suppressHydrationWarning>
-                No text sections available for this course.
-              </div>
-            )}
+                      );
+                    } else {
+                      // Assessment Module
+                      const module = item.data;
+                      const moduleId = String(module.id);
+                      
+                      return (
+                        <div
+                          key={`am-${moduleId}`}
+                          id={`assessment-module-${moduleId}`}
+                        >
+                          <AssessmentModule courseSlug={slug} moduleId={moduleId} />
+                        </div>
+                      );
+                    }
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
     </main>
+    </>
   );
 }

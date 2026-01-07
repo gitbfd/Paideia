@@ -32,10 +32,10 @@ export default function AssessmentModuleEditForm({ module }: Props) {
   const [title, setTitle] = useState(module.title);
   const [description, setDescription] = useState(module.description || '');
   const [courseId, setCourseId] = useState(module.course_id);
-  const [orderIndex, setOrderIndex] = useState(module.order_index);
   const [questionType, setQuestionType] = useState(module.question_type);
   const [questionCount, setQuestionCount] = useState(module.config?.question_count || 5);
   const [questionPrompt, setQuestionPrompt] = useState(module.config?.question_prompt || '');
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>(module.config?.difficulty || 'medium');
   const [loading, setLoading] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +78,7 @@ export default function AssessmentModuleEditForm({ module }: Props) {
       ...module.config,
       question_prompt: questionPrompt || undefined,
       question_count: questionCount,
+      difficulty: difficulty,
     };
 
     const res = await fetch(`/admin/assessment-modules/api`, {
@@ -88,7 +89,6 @@ export default function AssessmentModuleEditForm({ module }: Props) {
         title,
         description: description || null,
         course_id: courseId,
-        order_index: orderIndex,
         question_type: questionType,
         config,
       }),
@@ -162,21 +162,6 @@ export default function AssessmentModuleEditForm({ module }: Props) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Order Index</label>
-          <input
-            type="number"
-            className="border p-2 w-full"
-            placeholder="0"
-            value={orderIndex}
-            onChange={(e) => setOrderIndex(Number(e.target.value) || 0)}
-            disabled={loading}
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            Position in course sequence (0 = first, higher numbers appear later)
-          </p>
-        </div>
-
-        <div>
           <label className="block text-sm font-medium mb-1">Question Type *</label>
           <select
             className="border p-2 w-full"
@@ -203,6 +188,23 @@ export default function AssessmentModuleEditForm({ module }: Props) {
             min={1}
             max={20}
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Difficulty *</label>
+          <select
+            className="border p-2 w-full"
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
+            disabled={loading}
+          >
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+          <p className="text-sm text-gray-500 mt-1">
+            Controls the complexity level of generated questions
+          </p>
         </div>
 
         <div>

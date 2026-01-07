@@ -4,6 +4,23 @@ import { createClientServer } from '@/lib/supabase/server';
 import AssessmentModuleEditForm from '@/components/AssessmentModuleEditForm';
 import type { Metadata } from 'next';
 
+type Course = {
+  id: string;
+  title: string;
+  slug: string;
+};
+
+type AssessmentModule = {
+  id: string;
+  title: string;
+  description: string | null;
+  course_id: string;
+  order_index: number;
+  question_type: 'definition' | 'socratic' | 'multiple_choice' | 'short_answer';
+  config: Record<string, any>;
+  courses?: Course | null;
+};
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const supabase = await createClientServer();
   const { id } = await params;
@@ -49,6 +66,15 @@ export default async function EditAssessmentModule({ params }: { params: Promise
     return <div className="p-6">Assessment module not found.</div>;
   }
 
+  // Transform the module data to match the expected type
+  // Supabase returns courses as an array, but we expect a single Course object or null
+  const transformedModule: AssessmentModule = {
+    ...module,
+    courses: Array.isArray(module.courses) 
+      ? (module.courses.length > 0 ? module.courses[0] : null)
+      : (module.courses || null),
+  };
+
   return (
     <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -58,7 +84,7 @@ export default async function EditAssessmentModule({ params }: { params: Promise
         </Link>
       </div>
 
-      <AssessmentModuleEditForm module={module} />
+      <AssessmentModuleEditForm module={transformedModule} />
     </main>
   );
 }

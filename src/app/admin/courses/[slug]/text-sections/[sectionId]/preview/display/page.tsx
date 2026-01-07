@@ -180,7 +180,7 @@ export default async function SectionDisplayPreviewPage({
   const rangeLabel = formatRange(section);
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="bg-gray-50">
       <div className="sticky top-0 bg-white border-b shadow-sm z-10 p-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div>

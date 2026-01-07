@@ -102,7 +102,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="bg-gray-50">
       <div className="sticky top-0 bg-white border-b shadow-sm z-10 p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
@@ -128,7 +128,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
         )}
 
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <LineNumberedContent gridRows={gridRows} startLine={1} />
+          <LineNumberedContent gridRows={gridRows || undefined} startLine={1} />
         </div>
       </div>
     </main>

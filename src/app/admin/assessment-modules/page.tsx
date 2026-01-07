@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   title: 'Assessment Modules (Admin)',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function AssessmentModules() {
   try {
     const supabase = await createClientServer();
@@ -52,14 +54,6 @@ export default async function AssessmentModules() {
                 </div>
               </div>
               <div className="flex gap-2">
-                {module.courses && (
-                  <Link 
-                    className="text-blue-600 hover:underline text-sm" 
-                    href={`/admin/courses/${(module.courses as any).slug}`}
-                  >
-                    View Course
-                  </Link>
-                )}
                 <Link 
                   className="text-blue-600 hover:underline" 
                   href={`/admin/assessment-modules/${module.id}/edit`}

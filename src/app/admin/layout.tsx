@@ -12,7 +12,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <a className="block hover:underline pl-4" href="/admin/courses/published">Published Courses</a>
         </nav>
       </aside>
-      <section>{children}</section>
+      <section className="overflow-auto">{children}</section>
     </div>
   );
 }

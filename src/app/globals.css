@@ -25,5 +25,30 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Text preview styles have been moved to src/styles/text-preview.css */
-/* This file is now managed centrally for all preview views */
+.scrollbar-dark-thumb,
+.scrollbar-dark-thumb * {
+  /* scrollbar-width: thin; */
+  scrollbar-color: #4b5563 #f3f4f6;
+}
+
+.scrollbar-dark-thumb::-webkit-scrollbar,
+.scrollbar-dark-thumb *::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-dark-thumb::-webkit-scrollbar-track,
+.scrollbar-dark-thumb *::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+.scrollbar-dark-thumb::-webkit-scrollbar-thumb,
+.scrollbar-dark-thumb *::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+  border-radius: 4px;
+  /* scrollbar-color: red red; */
+}
+
+.scrollbar-dark-thumb::-webkit-scrollbar-thumb:hover,
+.scrollbar-dark-thumb *::-webkit-scrollbar-thumb:hover {
+  background-color: #374151;
+} 

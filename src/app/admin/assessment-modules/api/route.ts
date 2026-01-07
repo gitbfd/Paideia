@@ -8,6 +8,37 @@ export async function POST(req: NextRequest) {
   const { supabase, applyCookies } = createClientForRoute(req);
   const body = await req.json().catch(() => ({}));
 
+  // Refresh session to ensure it's current
+  await supabase.auth.getSession();
+
+  // Ensure we have a valid session
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    console.error('[AM API] Auth error:', authError);
+    return applyCookies(
+      NextResponse.json({ error: 'Unauthorized - please log in' }, { status: 401 })
+    );
+  }
+
+  // Verify user is an admin
+  const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin');
+  if (adminError) {
+    console.error('[AM API] Admin check error:', adminError);
+    return applyCookies(
+      NextResponse.json({ 
+        error: `Admin check failed: ${adminError.message}` 
+      }, { status: 500 })
+    );
+  }
+  if (!isAdmin) {
+    console.error('[AM API] User is not admin. User ID:', user.id);
+    return applyCookies(
+      NextResponse.json({ 
+        error: `Forbidden - admin access required. User ID: ${user.id}. Please ensure this user is in the app_admins table.` 
+      }, { status: 403 })
+    );
+  }
+
   const {
     title,
     description,
@@ -66,8 +97,18 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
+    console.error('[AM API] Insert error:', error);
+    console.error('[AM API] User ID:', user.id);
+    console.error('[AM API] Is Admin:', isAdmin);
     return applyCookies(
-      NextResponse.json({ error: error.message }, { status: 400 })
+      NextResponse.json({ 
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? {
+          user_id: user.id,
+          is_admin: isAdmin,
+          error_code: error.code,
+        } : undefined
+      }, { status: 400 })
     );
   }
 
@@ -146,17 +187,24 @@ export async function PUT(req: NextRequest) {
   }
 
   // Update assessment module
+  // Only update order_index if explicitly provided (otherwise preserve existing value)
+  const updateData: any = {
+    title,
+    description: description || null,
+    course_id,
+    question_type,
+    config: config || {},
+    updated_at: new Date().toISOString(),
+  };
+  
+  // Only include order_index if it's explicitly provided in the request
+  if (order_index !== undefined) {
+    updateData.order_index = order_index;
+  }
+
   const { data: module, error } = await supabase
     .from('assessment_modules')
-    .update({
-      title,
-      description: description || null,
-      course_id,
-      order_index: order_index ?? 0,
-      question_type,
-      config: config || {},
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', id)
     .select()
     .single();

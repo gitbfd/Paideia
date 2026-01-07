@@ -17,7 +17,7 @@ export default async function ProfilePage() {
       {/* UPPER RIGHT HAND CORNER */}
       <TopRightActions />
 
-      <h1 className="text-2xl md:text-3xl font-semibold mb-6">Student Profile</h1>
+      <h1 className="text-2xl md:text-3xl font-semibold text-gray-500 mb-6">Student Profile</h1>
 
       {!user && (
         <p className="text-sm text-red-600">

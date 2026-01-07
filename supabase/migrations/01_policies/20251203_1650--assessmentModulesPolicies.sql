@@ -13,6 +13,12 @@ CREATE POLICY "Admins can manage assessment_modules"
       SELECT 1 FROM public.app_admins
       WHERE app_admins.user_id = auth.uid()
     )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.app_admins
+      WHERE app_admins.user_id = auth.uid()
+    )
   );
 
 -- Students can read assessment modules for published courses they're enrolled in
@@ -38,6 +44,12 @@ CREATE POLICY "Admins can manage assessment_sessions"
   ON public.assessment_sessions
   FOR ALL
   USING (
+    EXISTS (
+      SELECT 1 FROM public.app_admins
+      WHERE app_admins.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.app_admins
       WHERE app_admins.user_id = auth.uid()
@@ -80,6 +92,12 @@ CREATE POLICY "Admins can manage assessment_questions"
       SELECT 1 FROM public.app_admins
       WHERE app_admins.user_id = auth.uid()
     )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.app_admins
+      WHERE app_admins.user_id = auth.uid()
+    )
   );
 
 -- Students can read questions for their own assessment sessions
@@ -103,6 +121,12 @@ CREATE POLICY "Admins can manage assessment_answers"
   ON public.assessment_answers
   FOR ALL
   USING (
+    EXISTS (
+      SELECT 1 FROM public.app_admins
+      WHERE app_admins.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.app_admins
       WHERE app_admins.user_id = auth.uid()

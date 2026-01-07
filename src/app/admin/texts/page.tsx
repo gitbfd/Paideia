@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   title: 'Texts (Admin)',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminTexts() {
   try {
     const supabase = await createClientServer();

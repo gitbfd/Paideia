@@ -401,9 +401,9 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
                 <Link
                   key={String(course.id ?? idx)}
                   href={`/courses/${course.slug}`}
-                  className="block border rounded-lg p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                  className="group block border rounded-lg p-3 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
-                  <p className="font-medium text-gray-900">{course.title}</p>
+                  <p className="font-medium text-gray-100 group-hover:text-black">{course.title}</p>
                   <p className="text-sm text-gray-500">{course.description}</p>
                 </Link>
               ))

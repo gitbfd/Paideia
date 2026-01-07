@@ -28,6 +28,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       end_line,
       start_char,
       end_char,
+      start_block,
+      end_block,
       title,
       order_index,
       created_at,
@@ -35,6 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       text_documents (
         id,
         meta,
+        display_content,
         text_id,
         texts (
           id,
@@ -63,7 +66,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const { 
     text_document_id, 
     start_char, 
-    end_char, 
+    end_char,
+    start_block,
+    end_block,
     title, 
     order_index 
   } = body ?? {};
@@ -132,6 +137,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   // Add character positions if available
   insertData.start_char = finalStartChar;
   insertData.end_char = finalEndChar;
+  
+  // Add block numbers if provided
+  if (start_block !== undefined && end_block !== undefined) {
+    const finalStartBlock = Number(start_block);
+    const finalEndBlock = Number(end_block);
+    if (!isNaN(finalStartBlock) && !isNaN(finalEndBlock) && finalStartBlock > 0 && finalEndBlock >= finalStartBlock) {
+      insertData.start_block = finalStartBlock;
+      insertData.end_block = finalEndBlock;
+    }
+  }
+  
   // Explicitly null out line numbers for new sections
   insertData.start_line = null;
   insertData.end_line = null;
