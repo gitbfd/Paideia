@@ -2,6 +2,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClientBrowser } from '@/lib/supabase';
 
 type Course = {
@@ -14,6 +16,7 @@ type Course = {
 
 export default function SelectCoursePage() {
   const supabase = createClientBrowser();
+  const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -104,6 +107,13 @@ export default function SelectCoursePage() {
     <main className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Select a Course</h1>
+        <Link 
+          href="/student/profile" 
+          onClick={() => router.refresh()}
+          className="text-blue-600 hover:underline"
+        >
+          Back to Profile
+        </Link>
       </div>
 
       {error && (

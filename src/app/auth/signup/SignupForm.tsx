@@ -21,7 +21,7 @@ export default function SignupForm() {
       email,
       password,
       options: {
-        emailRedirectTo: `${location.origin}/auth/callback?redirect=/dashboard`,
+        emailRedirectTo: `${location.origin}/auth/callback?redirect=/student/profile`,
       },
     });
 

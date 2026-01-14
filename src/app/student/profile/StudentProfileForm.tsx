@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { createClientBrowser } from '@/lib/supabase';
 
 type Profile = {
@@ -29,6 +30,7 @@ type Course = {
 
 export default function StudentProfileForm({ userId }: { userId: string }) {
   const supabase = createClientBrowser();
+  const pathname = usePathname();
 
   // Profile state
   const [profile, setProfile] = useState<Profile>({
@@ -183,7 +185,7 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
     loadCourses();
 
     return () => { active = false; };
-  }, [supabase, userId]);
+  }, [supabase, userId, pathname]); // Add pathname to dependencies to refresh when navigating to this page
 
   function onAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

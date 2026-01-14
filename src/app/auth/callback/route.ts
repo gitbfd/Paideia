@@ -40,7 +40,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
-  const next = url.searchParams.get('redirect') ?? '/dashboard';
+  const next = url.searchParams.get('redirect') ?? '/student/profile';
   const redirect = NextResponse.redirect(new URL(next, url.origin));
 
   if (code) {
