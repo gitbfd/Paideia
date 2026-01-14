@@ -255,7 +255,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
                       // Display multiple selections with option labels
                       <span>
                         {q.answer.answer_text.split(',').map((id: string, idx: number) => {
-                          const opt = q.metadata.options.find((o: { id: string; text: string }) => o.id === id.trim());
+                          const opt = q.metadata?.options?.find((o: { id: string; text: string }) => o.id === id.trim());
                           return opt ? (
                             <span 
                               key={id}
@@ -269,15 +269,17 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
                     ) : q.metadata?.options ? (
                       // Single selection - find the option text
                       (() => {
-                        const opt = q.metadata.options.find((o: { id: string; text: string }) => o.id === q.answer.answer_text.trim());
+                        const answerText = q.answer?.answer_text;
+                        if (!answerText) return <span>No answer</span>;
+                        const opt = q.metadata?.options?.find((o: { id: string; text: string }) => o.id === answerText.trim());
                         return opt ? (
                           <span dangerouslySetInnerHTML={{ __html: convertInlineMarkdownToHtml(opt.text) }} />
                         ) : (
-                          <span>{q.answer.answer_text}</span>
+                          <span>{answerText}</span>
                         );
                       })()
                     ) : (
-                      <span dangerouslySetInnerHTML={{ __html: convertInlineMarkdownToHtml(q.answer.answer_text) }} />
+                      <span dangerouslySetInnerHTML={{ __html: convertInlineMarkdownToHtml(q.answer?.answer_text || '') }} />
                     )}
                   </div>
                   <div className="text-sm mb-2">
@@ -326,7 +328,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
 
             {isMultipleChoice ? (
               <div className="space-y-2">
-                {currentQuestion.metadata.options.map((opt: { id: string; text: string }) => (
+                {(currentQuestion.metadata?.options || []).map((opt: { id: string; text: string }) => (
                   <label
                     key={opt.id}
                     className={`flex items-center p-3 border rounded cursor-pointer transition-colors ${
