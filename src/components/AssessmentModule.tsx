@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { convertInlineMarkdownToHtml } from '@/lib/assessment-modules/markdown-inline';
 
 type Question = {
   id: string;
@@ -51,6 +52,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -65,8 +67,14 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
         });
         const json = await res.json();
         if (!res.ok) {
-          console.error('[AssessmentModule] Start error:', json);
-          throw new Error(json.error || 'Failed to start assessment');
+          const errorMessage = json.error || `Failed to start assessment (${res.status})`;
+          console.error('[AssessmentModule] Start error:', {
+            status: res.status,
+            statusText: res.statusText,
+            errorMessage,
+            fullResponse: JSON.stringify(json, null, 2),
+          });
+          throw new Error(errorMessage);
         }
         
         console.log('[AssessmentModule] Session started:', json);
@@ -110,12 +118,20 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
       
       // Load existing answers
       const existingAnswers: Record<string, string> = {};
+      const existingSelections: Record<string, string[]> = {};
       json.questions.forEach((q: Question) => {
         if (q.answer) {
           existingAnswers[q.id] = q.answer.answer_text;
+          // Parse multiple selections if comma-separated
+          if (q.answer.answer_text.includes(',')) {
+            existingSelections[q.id] = q.answer.answer_text.split(',').map(s => s.trim());
+          } else {
+            existingSelections[q.id] = [q.answer.answer_text];
+          }
         }
       });
       setAnswers(existingAnswers);
+      setSelectedOptions(existingSelections);
       
       // Check if completed
       if (json.session.status === 'completed') {
@@ -180,7 +196,9 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
 
   const currentQuestion = questions[currentQuestionIndex];
   const currentAnswer = currentQuestion ? answers[currentQuestion.id] || '' : '';
+  const currentSelections = currentQuestion ? selectedOptions[currentQuestion.id] || [] : [];
   const hasAnswer = currentQuestion?.answer !== null && currentQuestion?.answer !== undefined;
+  const isMultipleChoice = currentQuestion?.metadata?.options && Array.isArray(currentQuestion.metadata.options) && currentQuestion.metadata.options.length > 0;
 
   if (loading) {
     return (
@@ -225,13 +243,42 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
         <div className="p-6 space-y-4">
           {questions.map((q, index) => (
             <div key={q.id} className="border rounded p-4">
-              <div className="font-semibold text-gray-900 mb-2">
-                Question {index + 1}: {q.question_text}
-              </div>
+              <div 
+                className="font-semibold text-gray-900 mb-2"
+                dangerouslySetInnerHTML={{ __html: `Question ${index + 1}: ${convertInlineMarkdownToHtml(q.question_text)}` }}
+              />
               {q.answer && (
                 <>
                   <div className="text-sm text-gray-600 mb-2">
-                    <strong>Your answer:</strong> {q.answer.answer_text}
+                    <strong>Your answer:</strong>{' '}
+                    {q.metadata?.options && q.answer.answer_text.includes(',') ? (
+                      // Display multiple selections with option labels
+                      <span>
+                        {q.answer.answer_text.split(',').map((id: string, idx: number) => {
+                          const opt = q.metadata.options.find((o: { id: string; text: string }) => o.id === id.trim());
+                          return opt ? (
+                            <span 
+                              key={id}
+                              dangerouslySetInnerHTML={{ __html: `${idx > 0 ? ', ' : ''}${convertInlineMarkdownToHtml(opt.text)}` }}
+                            />
+                          ) : (
+                            <span key={id}>{id.trim()}</span>
+                          );
+                        })}
+                      </span>
+                    ) : q.metadata?.options ? (
+                      // Single selection - find the option text
+                      (() => {
+                        const opt = q.metadata.options.find((o: { id: string; text: string }) => o.id === q.answer.answer_text.trim());
+                        return opt ? (
+                          <span dangerouslySetInnerHTML={{ __html: convertInlineMarkdownToHtml(opt.text) }} />
+                        ) : (
+                          <span>{q.answer.answer_text}</span>
+                        );
+                      })()
+                    ) : (
+                      <span dangerouslySetInnerHTML={{ __html: convertInlineMarkdownToHtml(q.answer.answer_text) }} />
+                    )}
                   </div>
                   <div className="text-sm mb-2">
                     <strong>Score:</strong>{' '}
@@ -272,36 +319,46 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
       <div className="p-6">
         {currentQuestion && (
           <div className="space-y-4">
-            <div className="text-lg font-medium text-gray-900">
-              {currentQuestion.question_text}
-            </div>
+            <div 
+              className="text-lg font-medium text-gray-900"
+              dangerouslySetInnerHTML={{ __html: convertInlineMarkdownToHtml(currentQuestion.question_text) }}
+            />
 
-            {currentQuestion.question_type === 'multiple_choice' && currentQuestion.metadata?.options ? (
+            {isMultipleChoice ? (
               <div className="space-y-2">
                 {currentQuestion.metadata.options.map((opt: { id: string; text: string }) => (
                   <label
                     key={opt.id}
                     className={`flex items-center p-3 border rounded cursor-pointer transition-colors ${
-                      currentAnswer === opt.id
+                      currentSelections.includes(opt.id)
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-300 hover:bg-gray-50'
                     }`}
                   >
                     <input
-                      type="radio"
+                      type="checkbox"
                       name={`question-${currentQuestion.id}`}
                       value={opt.id}
-                      checked={currentAnswer === opt.id}
+                      checked={currentSelections.includes(opt.id)}
                       onChange={(e) => {
-                        setAnswers({ ...answers, [currentQuestion.id]: e.target.value });
-                        if (!hasAnswer) {
-                          submitAnswer(currentQuestion.id, e.target.value);
-                        }
+                        if (hasAnswer) return; // Don't allow changes after submission
+                        
+                        const newSelections = e.target.checked
+                          ? [...currentSelections, opt.id]
+                          : currentSelections.filter(id => id !== opt.id);
+                        
+                        setSelectedOptions({
+                          ...selectedOptions,
+                          [currentQuestion.id]: newSelections,
+                        });
                       }}
                       disabled={hasAnswer}
                       className="mr-3"
                     />
-                    <span>{opt.text}</span>
+                    <span 
+                      className="text-gray-900"
+                      dangerouslySetInnerHTML={{ __html: convertInlineMarkdownToHtml(opt.text) }}
+                    />
                   </label>
                 ))}
               </div>
@@ -331,11 +388,26 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
               </div>
             )}
 
-            {!hasAnswer && currentAnswer && (
+            {!hasAnswer && (
               <button
-                onClick={() => submitAnswer(currentQuestion.id, currentAnswer)}
-                disabled={submitting}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                onClick={() => {
+                  if (isMultipleChoice) {
+                    // For multiple choice, join selections with commas
+                    const answerText = currentSelections.length > 0 
+                      ? currentSelections.join(',')
+                      : '';
+                    if (answerText) {
+                      submitAnswer(currentQuestion.id, answerText);
+                    }
+                  } else {
+                    // For text answers, use the current answer
+                    if (currentAnswer) {
+                      submitAnswer(currentQuestion.id, currentAnswer);
+                    }
+                  }
+                }}
+                disabled={submitting || (isMultipleChoice ? currentSelections.length === 0 : !currentAnswer)}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Submitting...' : 'Submit Answer'}
               </button>
@@ -347,7 +419,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
           <button
             onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
             disabled={currentQuestionIndex === 0}
-            className="px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 disabled:cursor-default"
           >
             Previous
           </button>
@@ -381,7 +453,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
             <button
               onClick={completeAssessment}
               disabled={submitting || questions.some(q => !q.answer)}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:hover:bg-green-600 disabled:cursor-default"
             >
               {submitting ? 'Completing...' : 'Complete Assessment'}
             </button>

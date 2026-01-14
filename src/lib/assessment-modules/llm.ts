@@ -49,7 +49,7 @@ export async function generateQuestions(
   const defaultPrompts = {
     definition: `Generate ${questionCount} definition questions that test understanding of key terms and concepts from the provided text. Each question should ask for a clear, accurate definition of an important concept.`,
     socratic: `Generate ${questionCount} Socratic questions that encourage deep thinking about the themes, arguments, and implications in the provided text. Questions should be open-ended and require students to analyze, evaluate, and synthesize ideas.`,
-    multiple_choice: `Generate ${questionCount} multiple choice questions that test comprehension of key concepts from the provided text. Each question should have one clearly correct answer and several plausible distractors.`,
+    multiple_choice: `Generate ${questionCount} multiple choice questions that test comprehension of key concepts from the provided text. Each question MUST have exactly 4 options labeled (a), (b), (c), and (d). One option should be clearly correct, and the other three should be plausible distractors. IMPORTANT: You MUST include the options in the metadata field as an array of objects with "id" (like "a", "b", "c", "d") and "text" (the option text) properties.`,
     short_answer: `Generate ${questionCount} short answer questions that test the student's comprehension of important concepts, events, or ideas from the provided text. Questions should require concise but complete answers (2-3 sentences).`,
   };
 
@@ -64,17 +64,27 @@ Text content:
 ${context}
 
 Return a JSON object with a "questions" array containing exactly ${questionCount} question objects. Each object should have:
-- "question_text": The question to ask
-- "correct_answer": A reference answer (for multiple choice, use the option ID like "a", "b", etc.)
-- "metadata": Additional data (for multiple choice, include "options" array with {"id": "a", "text": "Option text"} objects)
+- "question_text": The question to ask (for multiple choice, do NOT include the options in the question_text - they go in metadata.options)
+- "correct_answer": A reference answer (for multiple choice, use the option ID like "a", "b", "c", or "d")
+- "metadata": Additional data
+  - For multiple choice questions, metadata MUST include an "options" array with exactly 4 objects, each with:
+    - "id": The option identifier ("a", "b", "c", or "d")
+    - "text": The full option text including the label, e.g., "(a) Option text here"
 
-Format your response as valid JSON only, no markdown or explanation. Example format:
+Format your response as valid JSON only, no markdown or explanation. Example format for multiple choice:
 {
   "questions": [
     {
-      "question_text": "What is...?",
-      "correct_answer": "The answer is...",
-      "metadata": {}
+      "question_text": "During the latter part of Mill's life, England was ruled by",
+      "correct_answer": "c",
+      "metadata": {
+        "options": [
+          {"id": "a", "text": "(a) George IV"},
+          {"id": "b", "text": "(b) William IV"},
+          {"id": "c", "text": "(c) Victoria"},
+          {"id": "d", "text": "(d) Edward VII"}
+        ]
+      }
     }
   ]
 }`;
@@ -156,6 +166,13 @@ Format your response as valid JSON only, no markdown or explanation. Example for
         console.warn(`[LLM] Question ${index + 1} missing question_text:`, q);
       }
       
+      // Log if multiple choice options are present
+      if (formatted.metadata?.options) {
+        console.log(`[LLM] Question ${index + 1} has ${formatted.metadata.options.length} options:`, formatted.metadata.options);
+      } else if (questionType === 'multiple_choice') {
+        console.warn(`[LLM] Question ${index + 1} is multiple_choice but has no options in metadata:`, formatted);
+      }
+      
       return formatted;
     });
 
@@ -189,14 +206,35 @@ export async function evaluateAnswer(
 
   const { question, correctAnswer, studentAnswer, questionType, rubric } = params;
 
-  // For multiple choice, just check if answer matches
+  // For multiple choice, check if answer matches (supports comma-separated multiple selections)
   if (questionType === 'multiple_choice') {
-    const isCorrect = studentAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+    // Normalize answers: split by comma, trim, sort, and compare
+    const studentAnswers = studentAnswer.split(',').map(a => a.trim().toLowerCase()).sort();
+    const correctAnswers = correctAnswer.split(',').map(a => a.trim().toLowerCase()).sort();
+    
+    // Check if all correct answers are selected and no incorrect ones
+    const allCorrect = correctAnswers.every(ans => studentAnswers.includes(ans));
+    const noExtra = studentAnswers.every(ans => correctAnswers.includes(ans));
+    const isCorrect = allCorrect && noExtra && studentAnswers.length === correctAnswers.length;
+    
+    // Partial credit: if some correct answers are selected
+    let score = 0;
+    if (isCorrect) {
+      score = 1;
+    } else if (allCorrect && studentAnswers.length < correctAnswers.length) {
+      // Some correct answers selected but not all
+      score = studentAnswers.length / correctAnswers.length;
+    } else if (correctAnswers.some(ans => studentAnswers.includes(ans))) {
+      // At least one correct answer selected
+      const correctCount = correctAnswers.filter(ans => studentAnswers.includes(ans)).length;
+      score = correctCount / correctAnswers.length * 0.5; // Partial credit, max 50% if not all correct
+    }
+    
     return {
-      score: isCorrect ? 1 : 0,
+      score,
       feedback: isCorrect
         ? 'Correct!'
-        : `Incorrect. The correct answer is: ${correctAnswer}`,
+        : `Incorrect. The correct answer${correctAnswers.length > 1 ? 's are' : ' is'}: ${correctAnswer}`,
     };
   }
 

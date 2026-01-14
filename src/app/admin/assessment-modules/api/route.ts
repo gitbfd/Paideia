@@ -220,3 +220,84 @@ export async function PUT(req: NextRequest) {
   );
 }
 
+// DELETE /admin/assessment-modules/api
+// Delete an assessment module
+export async function DELETE(req: NextRequest) {
+  const { supabase, applyCookies } = createClientForRoute(req);
+  const body = await req.json().catch(() => ({}));
+  const { id } = body;
+
+  // Validate required fields
+  if (!id) {
+    return applyCookies(
+      NextResponse.json({ error: 'Missing required field: id' }, { status: 400 })
+    );
+  }
+
+  // Refresh session to ensure it's current
+  await supabase.auth.getSession();
+
+  // Ensure we have a valid session
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    console.error('[AM API DELETE] Auth error:', authError);
+    return applyCookies(
+      NextResponse.json({ error: 'Unauthorized - please log in' }, { status: 401 })
+    );
+  }
+
+  // Verify user is an admin
+  const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin');
+  if (adminError) {
+    console.error('[AM API DELETE] Admin check error:', adminError);
+    return applyCookies(
+      NextResponse.json({ 
+        error: `Admin check failed: ${adminError.message}` 
+      }, { status: 500 })
+    );
+  }
+  if (!isAdmin) {
+    console.error('[AM API DELETE] User is not admin. User ID:', user.id);
+    return applyCookies(
+      NextResponse.json({ 
+        error: `Forbidden - admin access required. User ID: ${user.id}. Please ensure this user is in the app_admins table.` 
+      }, { status: 403 })
+    );
+  }
+
+  // Verify module exists
+  const { data: existingModule, error: moduleError } = await supabase
+    .from('assessment_modules')
+    .select('id, title')
+    .eq('id', id)
+    .single();
+
+  if (moduleError || !existingModule) {
+    return applyCookies(
+      NextResponse.json({ error: 'Assessment module not found' }, { status: 404 })
+    );
+  }
+
+  // Delete the assessment module
+  // Note: This will cascade delete related records (sessions, questions, answers) if foreign keys are set up with CASCADE
+  const { error: deleteError } = await supabase
+    .from('assessment_modules')
+    .delete()
+    .eq('id', id);
+
+  if (deleteError) {
+    console.error('[AM API DELETE] Delete error:', deleteError);
+    return applyCookies(
+      NextResponse.json({ 
+        error: deleteError.message || 'Failed to delete assessment module' 
+      }, { status: 400 })
+    );
+  }
+
+  return applyCookies(
+    NextResponse.json({ 
+      success: true, 
+      message: `Assessment module "${existingModule.title}" deleted successfully` 
+    }, { status: 200 })
+  );
+}

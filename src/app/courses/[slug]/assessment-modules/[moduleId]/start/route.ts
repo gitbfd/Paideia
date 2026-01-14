@@ -74,6 +74,7 @@ export async function POST(
     .from('assessment_sessions')
     .select(`
       id,
+      attempt_number,
       assessment_questions (id)
     `)
     .eq('assessment_module_id', moduleId)
@@ -81,11 +82,14 @@ export async function POST(
     .eq('status', 'in_progress')
     .maybeSingle();
 
+  let attemptNumber = 1;
+
   if (existingSession) {
     // Check if session has questions
     const questionCount = existingSession.assessment_questions?.length || 0;
     console.log('[Assessment Start] Found existing session:', {
       sessionId: existingSession.id,
+      attemptNumber: existingSession.attempt_number,
       questionCount,
     });
     
@@ -99,24 +103,49 @@ export async function POST(
         }, { status: 200 })
       );
     } else {
-      // Delete empty session and create a new one
+      // Delete empty session
       console.log('[Assessment Start] Existing session has no questions, deleting and recreating');
-      await supabase.from('assessment_sessions').delete().eq('id', existingSession.id);
+      const { error: deleteError } = await supabase
+        .from('assessment_sessions')
+        .delete()
+        .eq('id', existingSession.id);
+      
+      if (deleteError) {
+        console.error('[Assessment Start] Error deleting empty session:', deleteError);
+        return applyCookies(
+          NextResponse.json({ 
+            error: `Failed to delete empty session: ${deleteError.message}` 
+          }, { status: 500 })
+        );
+      }
+      
+      // After deletion, recalculate attempt number to avoid race conditions
+      const { data: previousAttempts } = await supabase
+        .from('assessment_sessions')
+        .select('attempt_number')
+        .eq('assessment_module_id', moduleId)
+        .eq('user_id', user.id)
+        .order('attempt_number', { ascending: false })
+        .limit(1);
+
+      attemptNumber = previousAttempts && previousAttempts.length > 0
+        ? (previousAttempts[0].attempt_number || 0) + 1
+        : 1;
     }
+  } else {
+    // No existing session - get the highest attempt number for this user/module
+    const { data: previousAttempts } = await supabase
+      .from('assessment_sessions')
+      .select('attempt_number')
+      .eq('assessment_module_id', moduleId)
+      .eq('user_id', user.id)
+      .order('attempt_number', { ascending: false })
+      .limit(1);
+
+    attemptNumber = previousAttempts && previousAttempts.length > 0
+      ? (previousAttempts[0].attempt_number || 0) + 1
+      : 1;
   }
-
-  // Get the highest attempt number for this user/module
-  const { data: previousAttempts } = await supabase
-    .from('assessment_sessions')
-    .select('attempt_number')
-    .eq('assessment_module_id', moduleId)
-    .eq('user_id', user.id)
-    .order('attempt_number', { ascending: false })
-    .limit(1);
-
-  const attemptNumber = previousAttempts && previousAttempts.length > 0
-    ? (previousAttempts[0].attempt_number || 0) + 1
-    : 1;
 
   // Check if multiple attempts are allowed
   const config = module.config || {};
@@ -131,7 +160,10 @@ export async function POST(
   }
 
   // Create new assessment session
-  const { data: session, error: sessionError } = await supabase
+  let session: any = null;
+  let sessionError: any = null;
+  
+  const { data: initialSession, error: initialError } = await supabase
     .from('assessment_sessions')
     .insert({
       assessment_module_id: moduleId,
@@ -142,9 +174,71 @@ export async function POST(
     .select()
     .single();
 
-  if (sessionError || !session) {
+  if (initialError || !initialSession) {
+    if (initialError?.code === '23505') {
+      // Unique constraint violation - retry with recalculated attempt number
+      console.log('[Assessment Start] Unique constraint violation, recalculating attempt number');
+      const { data: previousAttempts } = await supabase
+        .from('assessment_sessions')
+        .select('attempt_number')
+        .eq('assessment_module_id', moduleId)
+        .eq('user_id', user.id)
+        .order('attempt_number', { ascending: false })
+        .limit(1);
+
+      const retryAttemptNumber = previousAttempts && previousAttempts.length > 0
+        ? (previousAttempts[0].attempt_number || 0) + 1
+        : 1;
+
+      // Retry creating session with new attempt number
+      const { data: retrySession, error: retryError } = await supabase
+        .from('assessment_sessions')
+        .insert({
+          assessment_module_id: moduleId,
+          user_id: user.id,
+          status: 'in_progress',
+          attempt_number: retryAttemptNumber,
+        })
+        .select()
+        .single();
+
+      if (retryError || !retrySession) {
+        const errorMessage = 'A session conflict occurred. Please refresh and try again.';
+        console.error('[Assessment Start] Retry also failed:', {
+          code: retryError?.code,
+          message: retryError?.message,
+          details: retryError?.details,
+          attemptNumber: retryAttemptNumber,
+        });
+        return applyCookies(
+          NextResponse.json({ error: errorMessage }, { status: 400 })
+        );
+      }
+
+      // Successfully created session on retry
+      session = retrySession;
+    } else {
+      // Other error - return it
+      const errorMessage = initialError?.message || initialError?.details || 'Failed to create session';
+      console.error('[Assessment Start] Session creation error:', {
+        code: initialError?.code,
+        message: initialError?.message,
+        details: initialError?.details,
+        hint: initialError?.hint,
+        attemptNumber,
+      });
+      
+      return applyCookies(
+        NextResponse.json({ error: errorMessage }, { status: 400 })
+      );
+    }
+  } else {
+    session = initialSession;
+  }
+
+  if (!session) {
     return applyCookies(
-      NextResponse.json({ error: sessionError?.message || 'Failed to create session' }, { status: 400 })
+      NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
     );
   }
 
@@ -185,6 +279,36 @@ export async function POST(
 
     console.log('[Assessment Start] Questions generated:', questions.length);
 
+    // Verify session exists and belongs to user before inserting questions
+    // This helps debug RLS policy issues
+    const { data: sessionVerify, error: verifyError } = await supabase
+      .from('assessment_sessions')
+      .select('id, user_id, status')
+      .eq('id', session.id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (verifyError || !sessionVerify) {
+      console.error('[Assessment Start] Session verification failed:', {
+        sessionId: session.id,
+        userId: user.id,
+        verifyError,
+        sessionVerify,
+      });
+      await supabase.from('assessment_sessions').delete().eq('id', session.id);
+      return applyCookies(
+        NextResponse.json({ 
+          error: `Session verification failed: ${verifyError?.message || 'Session not found'}. This may indicate an RLS policy issue.` 
+        }, { status: 500 })
+      );
+    }
+
+    console.log('[Assessment Start] Session verified:', {
+      sessionId: sessionVerify.id,
+      userId: sessionVerify.user_id,
+      status: sessionVerify.status,
+    });
+
     // Store generated questions
     const questionsToInsert = questions.map((q, index) => ({
       assessment_session_id: session.id,
@@ -199,6 +323,7 @@ export async function POST(
       count: questionsToInsert.length,
       sessionId: session.id,
       userId: user.id,
+      authUid: (await supabase.auth.getUser()).data.user?.id,
     });
 
     const { data: insertedQuestions, error: questionsError } = await supabase

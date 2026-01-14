@@ -12,9 +12,10 @@ import {
 } from '@/lib/display/html';
 import '@/styles/text-preview.css';
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import CourseSectionSidebar from '@/components/CourseSectionSidebar';
-import AssessmentModule from '@/components/AssessmentModule';
 import CoursesPageScrollbar from '@/components/CoursesPageScrollbar';
+import AssessmentModuleWrapper from '@/components/AssessmentModuleWrapper';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const supabase = await createClientServer();
@@ -327,67 +328,79 @@ export default async function CourseDetail({ params }: { params: Promise<{ slug:
 
               return (
                 <div className="space-y-6">
-                  {allItems.map((item) => {
-                    if (item.type === 'text_section') {
-                      const { section, textDoc, text, gridRows } = item.data;
-                      if (!section?.id || typeof section.id !== 'string' || section.id.length === 0) {
-                        return null;
+                  {allItems
+                    .filter((item) => {
+                      // Filter out invalid items before mapping to ensure consistent array length
+                      if (item.type === 'text_section') {
+                        return item.data.section?.id && typeof item.data.section.id === 'string' && item.data.section.id.length > 0;
                       }
-
-                      const sectionId = String(section.id);
-                      
-                      return (
-                        <div
-                          key={`text-${sectionId}`}
-                          id={`section-${sectionId}`}
-                          className="bg-white rounded-lg shadow-sm border overflow-hidden"
-                        >
-                          <div className="p-4 border-b bg-gray-50">
-                            <div className="font-semibold text-lg text-gray-900">
-                              {text?.title || 'Untitled Text'}
-                              {text?.author && (
-                                <span className="text-gray-600 font-normal">
-                                  {' by '}
-                                  {text.author}
-                                </span>
-                              )}
+                      return true; // Assessment modules are always valid
+                    })
+                    .map((item) => {
+                      if (item.type === 'text_section') {
+                        const { section, textDoc, text, gridRows } = item.data;
+                        const sectionId = String(section.id);
+                        // Normalize text object to prevent hydration mismatches
+                        const normalizedText = text && typeof text === 'object' ? text : null;
+                        const textTitle = normalizedText?.title || 'Untitled Text';
+                        const textAuthor = normalizedText?.author || null;
+                        const sectionTitle = section.title || null;
+                        
+                        return (
+                          <div
+                            key={`text-${sectionId}`}
+                            id={`section-${sectionId}`}
+                            className="bg-white rounded-lg shadow-sm border overflow-hidden"
+                          >
+                            <div className="p-4 border-b bg-gray-50">
+                              <div className="font-semibold text-xs text-gray-500">
+                                {textTitle}
+                                {textAuthor ? (
+                                  <span className="text-gray-600 font-normal">
+                                    {' by '}
+                                    {textAuthor}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {sectionTitle ? (
+                                <div className="font-semibold text-lg text-gray-900 mt-1">
+                                  {sectionTitle}
+                                </div>
+                              ) : null}
                             </div>
-                            {section.title && (
-                              <div className="text-sm text-gray-600 mt-1">
-                                {section.title}
+                            
+                            {gridRows && Array.isArray(gridRows) && gridRows.length > 0 ? (
+                              <div className="bg-white">
+                                <LineNumberedContent 
+                                  gridRows={gridRows}
+                                  startLine={gridRows[0]?.lineNumber || 1}
+                                />
+                              </div>
+                            ) : (
+                              <div className="p-6 text-sm text-gray-500 italic">
+                                Text content not available. This section may need to be re-ingested.
                               </div>
                             )}
                           </div>
-                          
-                          {gridRows && Array.isArray(gridRows) && gridRows.length > 0 ? (
-                            <div className="bg-white">
-                              <LineNumberedContent 
-                                gridRows={gridRows}
-                                startLine={gridRows[0]?.lineNumber || 1}
-                              />
-                            </div>
-                          ) : (
-                            <div className="p-6 text-sm text-gray-500 italic">
-                              Text content not available. This section may need to be re-ingested.
-                            </div>
-                          )}
-                        </div>
-                      );
-                    } else {
-                      // Assessment Module
-                      const module = item.data;
-                      const moduleId = String(module.id);
-                      
-                      return (
-                        <div
-                          key={`am-${moduleId}`}
-                          id={`assessment-module-${moduleId}`}
-                        >
-                          <AssessmentModule courseSlug={slug} moduleId={moduleId} />
-                        </div>
-                      );
-                    }
-                  })}
+                        );
+                      } else {
+                        // Assessment Module
+                        const module = item.data;
+                        const moduleId = String(module.id);
+                        
+                        return (
+                          <div
+                            key={`am-${moduleId}`}
+                            id={`assessment-module-${moduleId}`}
+                            className="bg-white rounded-lg shadow-sm border overflow-hidden"
+                          >
+                            <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading assessment...</div>}>
+                              <AssessmentModuleWrapper courseSlug={slug} moduleId={moduleId} />
+                            </Suspense>
+                          </div>
+                        );
+                      }
+                    })}
                 </div>
               );
             })()}

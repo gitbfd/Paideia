@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { createClientServer } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
+import DeleteAssessmentModuleButton from '@/components/DeleteAssessmentModuleButton';
 
 export const metadata: Metadata = {
   title: 'Assessment Modules (Admin)',
@@ -53,13 +54,18 @@ export default async function AssessmentModules() {
                   {module.order_index !== null && ` • Order: ${module.order_index}`}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Link 
                   className="text-blue-600 hover:underline" 
                   href={`/admin/assessment-modules/${module.id}/edit`}
                 >
                   Edit
                 </Link>
+                <span className="text-gray-300">|</span>
+                <DeleteAssessmentModuleButton 
+                  moduleId={module.id} 
+                  moduleTitle={module.title}
+                />
               </div>
             </li>
           ))}
