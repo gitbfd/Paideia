@@ -247,7 +247,7 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
   if (loading) return <p className="mt-6 text-sm text-gray-500">Loading…</p>;
 
   return (
-    <form onSubmit={onSubmit} className="flex justify-start items-start w-full min-h-screen">
+    <form onSubmit={onSubmit} className="flex flex-col md:flex-row justify-start items-start w-full min-h-screen">
       {/* LEFT HALF — profile section */}
       <div className="w-full md:w-1/2 flex flex-col items-center gap-8 px-6">
         {/* Clickable photo */}
@@ -368,10 +368,10 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
             />
           </label>
 
-          <div className="pt-4 flex justify-center">
+          <div className="pt-4 pb-8 md:pb-4 flex justify-center">
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-black text-white hover:bg-gray-900 transition-colors cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-gray-600 text-white hover:bg-gray-700 transition-colors cursor-pointer"
               disabled={loading}
             >
               {loading ? 'Saving…' : 'Save Profile'}
@@ -381,7 +381,7 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
       </div>
 
       {/* RIGHT HALF — My Courses panel */}
-      <div className="hidden md:flex flex-col w-1/2 h-full px-8 py-6 border-l border-gray-200">
+      <div className="flex flex-col w-full md:w-1/2 h-full px-6 md:px-8 py-6 md:border-l border-gray-200 md:border-t-0 border-t">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">My Courses</h2>
           <a
