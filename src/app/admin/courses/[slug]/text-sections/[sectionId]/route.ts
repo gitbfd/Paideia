@@ -1,5 +1,6 @@
 // src/app/admin/courses/[slug]/text-sections/[sectionId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createClientForRoute } from '@/lib/supabase/route';
 
 // DELETE /admin/courses/:slug/text-sections/:sectionId
@@ -30,6 +31,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
     return applyCookies(NextResponse.json({ error: error.message }, { status: 400 }));
   }
 
+  revalidateTag(`course-${course.id}`, 'max');
+  revalidateTag(`course-slug-${slug}`, 'max');
+  revalidatePath(`/courses/${slug}`);
   return applyCookies(NextResponse.json({ success: true }, { status: 200 }));
 }
 
@@ -84,6 +88,9 @@ export async function PATCH(
     return applyCookies(NextResponse.json({ error: error.message }, { status: 400 }));
   }
 
+  revalidateTag(`course-${course.id}`, 'max');
+  revalidateTag(`course-slug-${slug}`, 'max');
+  revalidatePath(`/courses/${slug}`);
   return applyCookies(NextResponse.json({ success: true, section: data }, { status: 200 }));
 }
 

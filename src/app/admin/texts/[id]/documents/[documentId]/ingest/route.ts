@@ -1,5 +1,6 @@
 // api/admin/texts/[id]/documents/[documentId]/ingest/route.ts
 import { NextResponse, NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { createClientAdmin } from '@/lib/supabase/admin';
 import { extractContent } from '@/lib/ingest/extractors';
 import { processDocument } from '@/lib/ingest/document-processor';
@@ -57,6 +58,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       chunksTableName: 'text_document_chunks',
     });
 
+    revalidateTag(`text-document-${documentId}`, 'max');
     return NextResponse.json({ success: true, chunks: result.chunks }, { status: 200 });
   } catch (error: any) {
     // Catch any unhandled errors and return JSON

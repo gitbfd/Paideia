@@ -1,5 +1,6 @@
 // src/app/admin/courses/[slug]/publish/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createClientForRoute } from '@/lib/supabase/route';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -14,5 +15,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
     .single();
 
   if (error) return applyCookies(NextResponse.json({ error: error.message }, { status: 400 }));
+
+  if (data?.id) {
+    revalidateTag(`course-${data.id}`, 'max');
+    revalidateTag(`course-slug-${slug}`, 'max');
+    revalidatePath(`/courses/${slug}`);
+  }
   return applyCookies(NextResponse.json({ success: true, course: data }, { status: 200 }));
 }

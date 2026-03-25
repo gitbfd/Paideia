@@ -34,7 +34,7 @@ export default function NewCoursePage() {
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
-      <button className="border px-4 py-2 rounded" onClick={createCourse}>Create</button>
+      <button className="btn-primary-md" onClick={createCourse}>Create</button>
     </main>
   );
 }

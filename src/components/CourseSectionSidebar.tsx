@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useState } from 'react';
 
 type SectionLink = {
   id: string;
@@ -17,11 +16,9 @@ type Props = {
   courseDescription?: string | null;
   stats?: {
     sectionCount: number;
-    lineCount: number;
-    charCount: number;
+    blockCount: number;
   };
-  avatarUrl?: string | null;
-  profileName?: string | null;
+  profileSlot: React.ReactNode;
 };
 
 export default function CourseSectionSidebar({
@@ -29,17 +26,9 @@ export default function CourseSectionSidebar({
   courseTitle,
   courseDescription,
   stats,
-  avatarUrl,
-  profileName,
+  profileSlot,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
-  const initials = useMemo(() => {
-    if (!profileName) return 'You';
-    const parts = profileName.trim().split(/\s+/);
-    if (parts.length === 0) return 'You';
-    if (parts.length === 1) return parts[0]?.[0]?.toUpperCase() ?? 'Y';
-    return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
-  }, [profileName]);
 
   function handleNavigate(section: SectionLink) {
     const id = section.type === 'assessment_module' 
@@ -57,20 +46,8 @@ export default function CourseSectionSidebar({
         collapsed ? 'w-10' : 'w-72'
       } bg-white border border-l-0 rounded-r-lg shadow-sm overflow-hidden max-h-screen`}
     >
-      <div className="flex-shrink-0 border-b p-3">
-        <Link
-          href="/student/profile"
-          className="flex items-center justify-start rounded-md p-2 transition-colors hover:bg-gray-50"
-        >
-          <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-sm font-semibold text-gray-600">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="Your avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span>{initials}</span>
-            )}
-          </div>
-        </Link>
+      <div key="sidebar-profile" className="contents">
+        {profileSlot}
       </div>
 
       {!collapsed && (
@@ -84,7 +61,7 @@ export default function CourseSectionSidebar({
           {stats && stats.sectionCount >= 0 && (
             <div
               dangerouslySetInnerHTML={{
-                __html: `<!-- ${stats.sectionCount.toLocaleString()} section${stats.sectionCount !== 1 ? 's' : ''} • ${stats.lineCount.toLocaleString()} lines • ${stats.charCount.toLocaleString()} characters -->`,
+                __html: `<!-- ${stats.sectionCount.toLocaleString()} section${stats.sectionCount !== 1 ? 's' : ''} • ${stats.blockCount.toLocaleString()} block${stats.blockCount !== 1 ? 's' : ''} -->`,
               }}
             />
           )}

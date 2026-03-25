@@ -24,7 +24,7 @@ export default function ResetPassword() {
         <input className="border px-3 py-2 w-full rounded bg-transparent"
                type="email" required value={email}
                onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com" />
-        <button className="border px-3 py-2 rounded w-full" type="submit">Send reset link</button>
+        <button className="btn-primary-md btn-full" type="submit">Send reset link</button>
       </form>
     </main>
   );

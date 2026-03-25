@@ -25,7 +25,7 @@ export default function UpdatePassword() {
         <input className="border px-3 py-2 w-full rounded bg-transparent"
                type="password" required value={password}
                onChange={(e)=>setPassword(e.target.value)} placeholder="New password" />
-        <button className="border px-3 py-2 rounded w-full" type="submit">Update password</button>
+        <button className="btn-primary-md btn-full" type="submit">Update password</button>
       </form>
     </main>
   );

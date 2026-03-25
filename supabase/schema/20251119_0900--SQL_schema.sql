@@ -125,6 +125,7 @@ CREATE TABLE public.text_documents (
   updated_at timestamp with time zone DEFAULT now(),
   conversion_content text,
   display_content text,
+  display_grid_rows jsonb,
   rag_text text,
   CONSTRAINT text_documents_pkey PRIMARY KEY (id),
   CONSTRAINT text_documents_text_id_fkey FOREIGN KEY (text_id) REFERENCES public.texts(id)

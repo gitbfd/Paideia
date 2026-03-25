@@ -4,6 +4,7 @@
 import { createClientAdmin } from '@/lib/supabase/admin';
 import { convertTextToHtml } from '@/lib/shared';
 import { chunkText, embedText } from '@/lib/rag';
+import { htmlToBlockGridRowsWithChars } from '@/lib/display/html';
 import type { SourceType, ExtractedContent, IngestOptions, IngestResult } from './types';
 
 export interface ProcessDocumentParams {
@@ -41,14 +42,19 @@ export async function processDocument(params: ProcessDocumentParams): Promise<In
   if (tableName === 'text_documents') {
     console.log('[INGEST] Converting text to HTML for display...');
     const htmlContent = await convertTextToHtml(content.textForDisplay, sourceType);
+
+    // Pre-compute grid rows for fast course page rendering
+    console.log('[INGEST] Computing display grid rows...');
+    const gridRows = htmlToBlockGridRowsWithChars(htmlContent);
     
-    // Store conversion + display content along with cleaned RAG text
-    console.log('[INGEST] Storing conversion content, display content, and RAG text...');
+    // Store conversion + display content + pre-computed grid rows + RAG text
+    console.log('[INGEST] Storing conversion content, display content, grid rows, and RAG text...');
     const { error: displayErr } = await admin
       .from(tableName)
       .update({
         conversion_content: htmlContent,
         display_content: htmlContent,
+        display_grid_rows: gridRows,
         rag_text: content.textForRag,
       })
       .eq('id', documentId);

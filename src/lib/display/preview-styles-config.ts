@@ -1,6 +1,6 @@
 // src/lib/display/preview-styles-config.ts
-// Shared configuration for preview styles - used by both CSS and line-height calculator
-// Update values here to keep CSS and line counting in sync
+// Shared configuration for preview styles - typography used by display preview CSS
+// Update values here to keep preview layout and spacing consistent
 
 export interface ElementStyle {
   fontSize: number; // in rem

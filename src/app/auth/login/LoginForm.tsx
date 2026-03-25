@@ -91,7 +91,7 @@ export default function LoginForm() {
         />
       </label>
 
-      <button className="border px-3 py-2 rounded w-full" type="submit" disabled={loading}>
+      <button className="btn-primary-md btn-full" type="submit" disabled={loading}>
         {loading ? 'Signing in…' : 'Sign in'}
       </button>
 

@@ -40,7 +40,7 @@ export default function AskCourse({ courseSlug }: { courseSlug: string }) {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && ask()}
         />
-        <button className="border px-3 py-2 rounded" onClick={ask} disabled={loading || !q.trim()}>
+        <button className="btn-primary-md" onClick={ask} disabled={loading || !q.trim()}>
           {loading ? 'Searching…' : 'Ask'}
         </button>
       </div>

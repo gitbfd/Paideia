@@ -1,5 +1,6 @@
 // src/app/admin/assessment-modules/api/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createClientForRoute } from '@/lib/supabase/route';
 
 // POST /admin/assessment-modules/api
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
     order_index,
     question_type,
     config,
+    template_id,
   } = body;
 
   // Validate required fields
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
   // Verify course exists
   const { data: course, error: courseError } = await supabase
     .from('courses')
-    .select('id')
+    .select('id, slug')
     .eq('id', course_id)
     .single();
 
@@ -82,17 +84,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let insertPayload: Record<string, unknown> = {
+    title,
+    description: description || null,
+    course_id,
+    order_index: order_index ?? 0,
+    question_type,
+    config: config || {},
+  };
+
+  if (template_id) {
+    const { data: tpl, error: tplErr } = await supabase
+      .from('assessment_module_templates')
+      .select('id')
+      .eq('id', template_id)
+      .maybeSingle();
+    if (tplErr || !tpl) {
+      return applyCookies(
+        NextResponse.json({ error: 'Template not found' }, { status: 404 })
+      );
+    }
+    insertPayload.template_id = template_id;
+  }
+
   // Insert assessment module
   const { data: module, error } = await supabase
     .from('assessment_modules')
-    .insert({
-      title,
-      description: description || null,
-      course_id,
-      order_index: order_index ?? 0,
-      question_type,
-      config: config || {},
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
@@ -112,6 +130,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (course?.id && course?.slug) {
+    revalidateTag(`course-${course.id}`, 'max');
+    revalidateTag(`course-slug-${course.slug}`, 'max');
+    revalidatePath(`/courses/${course.slug}`);
+  }
   return applyCookies(
     NextResponse.json({ success: true, module }, { status: 201 })
   );
@@ -176,7 +199,7 @@ export async function PUT(req: NextRequest) {
   // Verify course exists
   const { data: course, error: courseError } = await supabase
     .from('courses')
-    .select('id')
+    .select('id, slug')
     .eq('id', course_id)
     .single();
 
@@ -215,6 +238,11 @@ export async function PUT(req: NextRequest) {
     );
   }
 
+  if (course?.id && course?.slug) {
+    revalidateTag(`course-${course.id}`, 'max');
+    revalidateTag(`course-slug-${course.slug}`, 'max');
+    revalidatePath(`/courses/${course.slug}`);
+  }
   return applyCookies(
     NextResponse.json({ success: true, module }, { status: 200 })
   );
@@ -268,7 +296,7 @@ export async function DELETE(req: NextRequest) {
   // Verify module exists
   const { data: existingModule, error: moduleError } = await supabase
     .from('assessment_modules')
-    .select('id, title')
+    .select('id, title, course_id')
     .eq('id', id)
     .single();
 
@@ -294,6 +322,18 @@ export async function DELETE(req: NextRequest) {
     );
   }
 
+  if (existingModule.course_id) {
+    const { data: course } = await supabase
+      .from('courses')
+      .select('id, slug')
+      .eq('id', existingModule.course_id)
+      .single();
+    if (course?.id && course?.slug) {
+      revalidateTag(`course-${course.id}`, 'max');
+      revalidateTag(`course-slug-${course.slug}`, 'max');
+      revalidatePath(`/courses/${course.slug}`);
+    }
+  }
   return applyCookies(
     NextResponse.json({ 
       success: true, 

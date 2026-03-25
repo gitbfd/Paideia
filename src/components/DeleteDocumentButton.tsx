@@ -54,7 +54,7 @@ export default function DeleteDocumentButton({ textId, documentId, filename }: P
           <button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-danger-sm"
           >
             {isDeleting ? 'Deleting...' : 'Yes, Delete'}
           </button>
@@ -64,7 +64,7 @@ export default function DeleteDocumentButton({ textId, documentId, filename }: P
               setError(null);
             }}
             disabled={isDeleting}
-            className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+            className="btn-outline btn-sm"
           >
             Cancel
           </button>
@@ -79,7 +79,7 @@ export default function DeleteDocumentButton({ textId, documentId, filename }: P
   return (
     <button
       onClick={() => setShowConfirm(true)}
-      className="text-sm text-red-600 hover:text-red-800 hover:underline text-right block"
+      className="btn-link-danger text-sm text-right block"
       type="button"
     >
       Delete

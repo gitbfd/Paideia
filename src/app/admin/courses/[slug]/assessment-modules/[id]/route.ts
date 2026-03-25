@@ -1,5 +1,6 @@
 // src/app/admin/courses/[slug]/assessment-modules/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createClientForRoute } from '@/lib/supabase/route';
 
 // PATCH /admin/courses/:slug/assessment-modules/:id
@@ -43,6 +44,9 @@ export async function PATCH(
     return applyCookies(NextResponse.json({ error: error.message }, { status: 400 }));
   }
 
+  revalidateTag(`course-${course.id}`, 'max');
+  revalidateTag(`course-slug-${slug}`, 'max');
+  revalidatePath(`/courses/${slug}`);
   return applyCookies(NextResponse.json({ success: true, module: data }, { status: 200 }));
 }
 
@@ -77,6 +81,9 @@ export async function DELETE(
     return applyCookies(NextResponse.json({ error: error.message }, { status: 400 }));
   }
 
+  revalidateTag(`course-${course.id}`, 'max');
+  revalidateTag(`course-slug-${slug}`, 'max');
+  revalidatePath(`/courses/${slug}`);
   return applyCookies(NextResponse.json({ success: true }, { status: 200 }));
 }
 

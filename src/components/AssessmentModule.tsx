@@ -214,7 +214,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
         <div className="text-red-600 mb-4">{error}</div>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="btn-primary-md"
         >
           Retry
         </button>
@@ -392,6 +392,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
 
             {!hasAnswer && (
               <button
+                className="btn-primary-md"
                 onClick={() => {
                   if (isMultipleChoice) {
                     // For multiple choice, join selections with commas
@@ -409,7 +410,6 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
                   }
                 }}
                 disabled={submitting || (isMultipleChoice ? currentSelections.length === 0 : !currentAnswer)}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Submitting...' : 'Submit Answer'}
               </button>
@@ -421,7 +421,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
           <button
             onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
             disabled={currentQuestionIndex === 0}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 disabled:cursor-default"
+            className="btn-primary-md"
           >
             Previous
           </button>
@@ -447,7 +447,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
           {currentQuestionIndex < questions.length - 1 ? (
             <button
               onClick={() => setCurrentQuestionIndex(Math.min(questions.length - 1, currentQuestionIndex + 1))}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="btn-primary-md"
             >
               Next
             </button>
@@ -455,7 +455,7 @@ export default function AssessmentModule({ courseSlug, moduleId }: Props) {
             <button
               onClick={completeAssessment}
               disabled={submitting || questions.some(q => !q.answer)}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:hover:bg-green-600 disabled:cursor-default"
+              className="btn-success-md"
             >
               {submitting ? 'Completing...' : 'Complete Assessment'}
             </button>

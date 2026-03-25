@@ -54,7 +54,7 @@ export default function DeleteAssessmentModuleButton({ moduleId, moduleTitle }: 
           <button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="px-4 py-2 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-danger-sm"
           >
             {isDeleting ? 'Deleting...' : 'Yes'}
           </button>
@@ -64,7 +64,7 @@ export default function DeleteAssessmentModuleButton({ moduleId, moduleTitle }: 
               setError(null);
             }}
             disabled={isDeleting}
-            className="px-4 py-2 text-xs border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+            className="btn-outline btn-sm"
           >
             Cancel
           </button>
@@ -79,7 +79,7 @@ export default function DeleteAssessmentModuleButton({ moduleId, moduleTitle }: 
   return (
     <button
       onClick={() => setShowConfirm(true)}
-      className="text-red-600 hover:text-red-800 hover:underline text-sm"
+      className="btn-link-danger text-sm"
       type="button"
     >
       Delete

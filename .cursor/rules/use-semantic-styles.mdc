@@ -1,0 +1,37 @@
+---
+description: Use semantic CSS classes from src/styles instead of inline Tailwind utilities
+alwaysApply: true
+---
+
+# Use Project Styles from src/styles
+
+When adding or editing UI components, use the semantic classes defined in `src/styles/` instead of writing Tailwind utility classes inline.
+
+## Buttons
+
+**Always use button classes from `src/styles/buttons.css`.**
+
+### Available classes
+
+- **Convenience (single class):** `btn-primary-sm`, `btn-primary-md`, `btn-primary-lg`, `btn-secondary-sm`, `btn-secondary-md`, `btn-danger-sm`, `btn-success-sm`, `btn-outline`, `btn-link`, `btn-link-danger`, etc.
+- **Modular (combine):** `btn-base` + variant (`btn-primary`, `btn-secondary`, `btn-danger`, `btn-success`, `btn-black`, `btn-outline`, `btn-link`) + size (`btn-sm`, `btn-md`, `btn-lg`)
+
+### Examples
+
+```
+✅ GOOD: className="btn-primary-md"
+✅ GOOD: className="btn-base btn-secondary btn-sm"
+✅ GOOD: className="btn-outline btn-md"
+❌ BAD:  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+❌ BAD:  className="border px-4 py-2 rounded bg-blue-600 text-white"
+```
+
+## Other components
+
+As new style files are added to `src/styles/` (e.g. forms, cards, inputs), use those classes. Do not recreate the same styles with Tailwind utilities.
+
+## When Tailwind is acceptable
+
+- Layout only: `flex`, `grid`, `gap-2`, `space-y-4`, `w-full`, `max-w-xl` when no semantic equivalent exists
+- One-off spacing or layout tweaks that have no semantic class yet
+- Do **not** use Tailwind for buttons, form controls, or any element that has a defined class in `src/styles/`

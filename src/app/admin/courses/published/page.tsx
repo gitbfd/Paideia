@@ -35,7 +35,19 @@ export default async function PublishedCourses() {
                 {c.published_at && ` • Published: ${new Date(c.published_at).toLocaleDateString()}`}
               </div>
             </div>
-            <Link className="text-blue-600 hover:underline" href={`/admin/courses/${c.slug}/edit`}>Edit</Link>
+            <div className="flex flex-col items-end gap-1 text-sm">
+              <Link className="text-blue-600 hover:underline" href={`/admin/courses/${c.slug}/edit`}>
+                Edit
+              </Link>
+              <Link
+                className="text-blue-600 hover:underline"
+                href={`/courses/${c.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View Course
+              </Link>
+            </div>
           </li>
         ))}
         {courses?.length === 0 && (

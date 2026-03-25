@@ -85,7 +85,7 @@ export default function NewTextPage() {
         <p className="text-xs text-gray-500 mt-1">Separate multiple tags with commas</p>
       </div>
       <button
-        className="border px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+        className="btn-primary-md"
         onClick={createText}
         disabled={!title.trim()}
       >

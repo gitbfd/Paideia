@@ -224,14 +224,14 @@ export default function AssessmentModuleEditForm({ module }: Props) {
 
         <div className="flex gap-2">
           <button
-            className="border px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            className="btn-primary-md"
             onClick={updateAssessmentModule}
             disabled={loading}
           >
             {loading ? 'Updating...' : 'Update Assessment Module'}
           </button>
           <button
-            className="border px-4 py-2 rounded hover:bg-gray-100 disabled:opacity-50"
+            className="btn-outline btn-md"
             onClick={() => router.back()}
             disabled={loading}
           >

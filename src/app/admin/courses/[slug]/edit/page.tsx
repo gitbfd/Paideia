@@ -53,13 +53,25 @@ export default async function EditCourse({ params }: { params: Promise<{ slug: s
     <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{headingPrefix} {course.title}</h1>
-        <Link className="text-blue-600 hover:underline" href="/admin/courses">← Back to Courses</Link>
+        <div className="flex flex-col items-end gap-1 text-sm">
+          <Link className="text-blue-600 hover:underline" href="/admin/courses">
+            ← Back to Courses
+          </Link>
+          <Link
+            className="text-blue-600 hover:underline"
+            href={`/courses/${course.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View Course
+          </Link>
+        </div>
       </div>
 
       <CourseEditForm course={course} />
 
       <div className="border-t pt-6">
-        <AddTextSection courseSlug={course.slug} />
+        <AddTextSection courseSlug={course.slug} courseId={course.id} />
       </div>
     </main>
   );

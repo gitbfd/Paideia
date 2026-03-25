@@ -1,5 +1,6 @@
 // src/app/admin/courses/draft/page.tsx
 import Link from 'next/link';
+import DeleteDraftCourseButton from '@/components/DeleteDraftCourseButton';
 import { createClientServer } from '@/lib/supabase/server';
 import type { Metadata } from 'next';
 
@@ -32,7 +33,22 @@ export default async function DraftCourses() {
               <div className="font-medium">{c.title}</div>
               <div className="text-sm opacity-70">Status: {c.status}</div>
             </div>
-            <Link className="text-blue-600 hover:underline" href={`/admin/courses/${c.slug}/edit`}>Edit</Link>
+            <div className="flex flex-col items-end gap-1 text-sm">
+              <div className="flex items-center gap-3">
+                <Link className="text-blue-600 hover:underline" href={`/admin/courses/${c.slug}/edit`}>
+                  Edit
+                </Link>
+                <DeleteDraftCourseButton courseSlug={c.slug} courseTitle={c.title} />
+              </div>
+              <Link
+                className="text-blue-600 hover:underline"
+                href={`/courses/${c.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View Course
+              </Link>
+            </div>
           </li>
         ))}
         {courses?.length === 0 && (

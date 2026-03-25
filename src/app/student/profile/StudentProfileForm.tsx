@@ -28,6 +28,29 @@ type Course = {
   // add more fields if your table has them (progress, status, etc.)
 };
 
+const DEFAULT_AVATARS = [
+  '/img/prof_defaults/Alexander.png',
+  '/img/prof_defaults/Augustus.png',
+  '/img/prof_defaults/Lycurgus.png',
+  '/img/prof_defaults/Perseus.png',
+  '/img/prof_defaults/Virgil.png',
+];
+
+/**
+ * Get a default avatar image for a user based on their ID.
+ * This ensures each user consistently gets the same default avatar.
+ */
+function getDefaultAvatar(userId: string): string {
+  // Use a simple hash of the userId to deterministically select an avatar
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = ((hash << 5) - hash) + userId.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  const index = Math.abs(hash) % DEFAULT_AVATARS.length;
+  return DEFAULT_AVATARS[index];
+}
+
 export default function StudentProfileForm({ userId }: { userId: string }) {
   const supabase = createClientBrowser();
   const pathname = usePathname();
@@ -49,7 +72,7 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
 
   // Avatar state
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [avatarPreview, setAvatarPreview] = useState<string>(getDefaultAvatar(userId));
 
   // Hidden input for click-on-photo
   const fileRef = useRef<HTMLInputElement>(null);
@@ -125,7 +148,11 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
         if (active) {
           if (row) {
             setProfile((p) => ({ ...p, ...row }));
-            if (row.avatar_url) setAvatarPreview(row.avatar_url);
+            // Use avatar_url if available, otherwise use default avatar
+            setAvatarPreview(row.avatar_url || getDefaultAvatar(userId));
+          } else {
+            // No profile row yet, use default avatar
+            setAvatarPreview(getDefaultAvatar(userId));
           }
           setLoading(false);
         }
@@ -238,7 +265,6 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
         alert('Error saving profile: ' + (error.message ?? 'unknown error'));
         return;
       }
-      alert('Profile saved.');
     } finally {
       setLoading(false);
     }
@@ -259,20 +285,14 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
           onKeyDown={onKeyActivate}
           className="w-[350px] h-[350px] rounded-full overflow-hidden relative bg-gray-100 aspect-square cursor-pointer group select-none"
         >
-          {avatarPreview ? (
-            <Image
-              src={avatarPreview}
-              alt="Profile picture"
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 400px"
-              priority
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
-              400×400
-            </div>
-          )}
+          <Image
+            src={avatarPreview || getDefaultAvatar(userId)}
+            alt="Profile picture"
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 400px"
+            priority
+          />
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/20">
             <span className="rounded-md px-3 py-1 text-white text-xs md:text-sm bg-black/50">
               {avatarPreview ? 'Click to change' : 'Click to upload'}
@@ -371,7 +391,7 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
           <div className="pt-4 pb-8 md:pb-4 flex justify-center">
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-gray-600 text-white hover:bg-gray-700 transition-colors cursor-pointer"
+              className="btn-secondary-md"
               disabled={loading}
             >
               {loading ? 'Saving…' : 'Save Profile'}
@@ -386,7 +406,7 @@ export default function StudentProfileForm({ userId }: { userId: string }) {
           <h2 className="text-xl font-semibold">My Courses</h2>
           <a
             href="/courses/select"
-            className="px-4 py-2 rounded-xl bg-black text-white text-sm hover:bg-gray-700 transition-colors cursor-pointer"
+            className="btn-black-sm"
           >
             Add New Course
           </a>

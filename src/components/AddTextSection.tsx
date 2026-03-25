@@ -54,7 +54,10 @@ type CourseItem =
 
 type Props = {
   courseSlug: string;
+  courseId: string;
 };
+
+type AmQuestionType = 'definition' | 'socratic' | 'multiple_choice' | 'short_answer';
 
 /**
  * Formats a range label, prioritizing stored block numbers
@@ -88,7 +91,7 @@ function formatRangeLabel(
   return 'Range not specified';
 }
 
-export default function AddTextSection({ courseSlug }: Props) {
+export default function AddTextSection({ courseSlug, courseId }: Props) {
   const router = useRouter();
   const [texts, setTexts] = useState<Text[]>([]);
   const [sections, setSections] = useState<TextSection[]>([]);
@@ -109,12 +112,45 @@ export default function AddTextSection({ courseSlug }: Props) {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [initialItemsSnapshot, setInitialItemsSnapshot] = useState<CourseItem[] | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
+  const [isEditOrderMode, setIsEditOrderMode] = useState(false);
+  const [originalOrder, setOriginalOrder] = useState<CourseItem[]>([]);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [showEditOrderModal, setShowEditOrderModal] = useState(false);
   const itemsRef = useRef<CourseItem[]>(items);
   const dropHandledRef = useRef(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  const [showAmAddForm, setShowAmAddForm] = useState(false);
+  const [amSource, setAmSource] = useState<'course' | 'template'>('course');
+  const [amTemplates, setAmTemplates] = useState<Array<{ id: string; title: string }>>([]);
+  const [amSelectedTemplateId, setAmSelectedTemplateId] = useState('');
+  const [amTitle, setAmTitle] = useState('');
+  const [amDescription, setAmDescription] = useState('');
+  const [amQuestionType, setAmQuestionType] = useState<AmQuestionType>('short_answer');
+  const [amQuestionCount, setAmQuestionCount] = useState(5);
+  const [amQuestionPrompt, setAmQuestionPrompt] = useState('');
+  const [amDifficulty, setAmDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [amOrderIndex, setAmOrderIndex] = useState(0);
+  const [amSubmitting, setAmSubmitting] = useState(false);
 
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (showEditOrderModal) {
+      dialog.showModal();
+    } else {
+      dialog.close();
+    }
+    const onClose = () => setShowEditOrderModal(false);
+    dialog.addEventListener('close', onClose);
+    return () => dialog.removeEventListener('close', onClose);
+  }, [showEditOrderModal]);
 
   // Combine sections and assessment modules into unified items array
   useEffect(() => {
@@ -163,6 +199,134 @@ export default function AddTextSection({ courseSlug }: Props) {
       setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function calculateNextAmOrderIndex() {
+    try {
+      const [sectionsRes, modulesRes] = await Promise.all([
+        fetch(`/admin/courses/${courseSlug}/text-sections`),
+        fetch(`/admin/courses/${courseSlug}/assessment-modules/api`),
+      ]);
+      const sectionsData = await sectionsRes.json();
+      const modulesData = await modulesRes.json();
+      const allOrderIndices = [
+        ...(sectionsData.sections || []).map((s: { order_index: number }) => s.order_index),
+        ...(modulesData.modules || []).map((m: { order_index: number }) => m.order_index),
+      ];
+      const maxOrderIndex =
+        allOrderIndices.length > 0 ? Math.max(...allOrderIndices) : -1;
+      setAmOrderIndex(maxOrderIndex + 1);
+    } catch {
+      setAmOrderIndex(0);
+    }
+  }
+
+  async function openAmAddForm() {
+    setShowAmAddForm(true);
+    setShowAddForm(false);
+    setAmSource('course');
+    setAmSelectedTemplateId('');
+    setAmTitle('');
+    setAmDescription('');
+    setAmQuestionType('short_answer');
+    setAmQuestionCount(5);
+    setAmQuestionPrompt('');
+    setAmDifficulty('medium');
+    setError(null);
+    await calculateNextAmOrderIndex();
+    try {
+      const res = await fetch('/admin/assessment-module-templates/api');
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.templates)) {
+        setAmTemplates(
+          data.templates.map((t: { id: string; title: string }) => ({
+            id: t.id,
+            title: t.title,
+          }))
+        );
+      } else {
+        setAmTemplates([]);
+      }
+    } catch {
+      setAmTemplates([]);
+    }
+  }
+
+  useEffect(() => {
+    if (!showAmAddForm || amSource !== 'template' || !amSelectedTemplateId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/admin/assessment-module-templates/api?id=${encodeURIComponent(amSelectedTemplateId)}`
+        );
+        const data = await res.json();
+        if (cancelled || !res.ok || !data.template) return;
+        const t = data.template;
+        setAmTitle(t.title ?? '');
+        setAmDescription(t.description ?? '');
+        setAmQuestionType(t.question_type ?? 'short_answer');
+        const cfg = (t.config as Record<string, unknown>) || {};
+        setAmQuestionCount(Number(cfg.question_count) || 5);
+        setAmQuestionPrompt(String(cfg.question_prompt ?? ''));
+        const d = cfg.difficulty;
+        setAmDifficulty(
+          d === 'easy' || d === 'hard' || d === 'medium' ? d : 'medium'
+        );
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showAmAddForm, amSource, amSelectedTemplateId]);
+
+  async function handleSubmitAssessmentModule(e: React.FormEvent) {
+    e.preventDefault();
+    if (!amTitle.trim()) {
+      setError('Assessment module title is required');
+      return;
+    }
+    setAmSubmitting(true);
+    setError(null);
+    try {
+      const config = {
+        question_prompt: amQuestionPrompt || undefined,
+        question_count: amQuestionCount,
+        difficulty: amDifficulty,
+        allow_multiple_attempts: true,
+      };
+      const body: Record<string, unknown> = {
+        title: amTitle,
+        description: amDescription || null,
+        course_id: courseId,
+        order_index: amOrderIndex,
+        question_type: amQuestionType,
+        config,
+      };
+      if (amSource === 'template' && amSelectedTemplateId) {
+        body.template_id = amSelectedTemplateId;
+      }
+      const res = await fetch('/admin/assessment-modules/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to create assessment module');
+      }
+      setShowAmAddForm(false);
+      await loadData();
+      router.refresh();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to create assessment module'
+      );
+    } finally {
+      setAmSubmitting(false);
     }
   }
 
@@ -332,21 +496,6 @@ export default function AddTextSection({ courseSlug }: Props) {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-
-    if (draggedIndex === null || draggedIndex === index) {
-      setDragOverIndex(index);
-      return;
-    }
-
-    setItems(prevItems => {
-      const newItems = [...prevItems];
-      const [draggedItem] = newItems.splice(draggedIndex, 1);
-      newItems.splice(index, 0, draggedItem);
-      itemsRef.current = newItems;
-      return newItems;
-    });
-
-    setDraggedIndex(index);
     setDragOverIndex(index);
   }
 
@@ -372,11 +521,29 @@ export default function AddTextSection({ courseSlug }: Props) {
       return;
     }
 
+    // Reorder items in UI
+    const currentItems = [...itemsRef.current];
+    const itemToMove = currentItems[draggedIndex];
+    currentItems.splice(draggedIndex, 1);
+    currentItems.splice(dropIndex, 0, itemToMove);
+    
+    setItems(currentItems);
+    itemsRef.current = currentItems;
+    setDraggedIndex(null);
+    setInitialItemsSnapshot(null);
+    setIsDragging(false);
+
+    // If not in edit mode, save immediately (legacy behavior)
+    if (!isEditOrderMode) {
+      await handleDropWithSave(currentItems);
+    }
+  }
+
+  async function handleDropWithSave(reorderedItems: CourseItem[]) {
     // Update order_index for all affected items
     const updates: Promise<void>[] = [];
-    const currentItems = itemsRef.current;
 
-    currentItems.forEach((item, index) => {
+    reorderedItems.forEach((item, index) => {
       if (item.data.order_index !== index) {
         if (item.type === 'text_section') {
           updates.push(
@@ -409,18 +576,12 @@ export default function AddTextSection({ courseSlug }: Props) {
     });
 
     try {
-      setDraggedIndex(null);
-      setIsDragging(false);
       await Promise.all(updates);
       await loadData();
       router.refresh();
     } catch (err: any) {
       setError(err.message || 'Failed to reorder items');
       await loadData();
-    } finally {
-      setDraggedIndex(null);
-      setInitialItemsSnapshot(null);
-      setIsDragging(false);
     }
   }
 
@@ -437,6 +598,159 @@ export default function AddTextSection({ courseSlug }: Props) {
     setIsDragging(false);
   }
 
+  function handleIndexChange(itemIndex: number, newDisplayIndex: number) {
+    // Convert 1-based display index to 0-based order_index
+    const newOrderIndex = newDisplayIndex - 1;
+    
+    // Validate: must be between 0 and items.length - 1
+    if (newOrderIndex < 0 || newOrderIndex >= items.length) {
+      setError(`Index must be between 1 and ${items.length}`);
+      setEditingIndex(null);
+      return;
+    }
+
+    const currentItems = [...items];
+    const itemToMove = currentItems[itemIndex];
+    
+    // Remove item from current position
+    currentItems.splice(itemIndex, 1);
+    
+    // Insert at new position
+    currentItems.splice(newOrderIndex, 0, itemToMove);
+    
+    // Update UI optimistically (no API calls in edit mode)
+    setItems(currentItems);
+    itemsRef.current = currentItems;
+    setEditingIndex(null);
+    setError(null);
+  }
+
+  function handleIndexInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>, itemIndex: number) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = parseInt(editingValue, 10);
+      if (!isNaN(value)) {
+        handleIndexChange(itemIndex, value);
+      } else {
+        setEditingIndex(null);
+      }
+    } else if (e.key === 'Escape') {
+      setEditingIndex(null);
+      setEditingValue('');
+    }
+  }
+
+  function handleIndexInputBlur(itemIndex: number) {
+    const value = parseInt(editingValue, 10);
+    if (!isNaN(value)) {
+      handleIndexChange(itemIndex, value);
+    } else {
+      setEditingIndex(null);
+      setEditingValue('');
+    }
+  }
+
+  function handleStartEditOrder() {
+    // Save current order as snapshot for cancel
+    setOriginalOrder(
+      items.map((item): CourseItem =>
+        item.type === 'text_section'
+          ? { type: 'text_section', data: { ...item.data } }
+          : { type: 'assessment_module', data: { ...item.data } }
+      )
+    );
+    setIsEditOrderMode(true);
+    setShowEditOrderModal(false);
+    setError(null);
+  }
+
+  function handleIndexClick(itemIndex: number) {
+    if (!isEditOrderMode) {
+      // Show modal to enter edit mode
+      setShowEditOrderModal(true);
+    } else {
+      // Already in edit mode, allow editing
+      setEditingIndex(itemIndex);
+      setEditingValue(String(itemIndex + 1));
+    }
+  }
+
+  function handleCancelEditOrder() {
+    // Revert to original order
+    setItems(originalOrder);
+    itemsRef.current = originalOrder;
+    setIsEditOrderMode(false);
+    setOriginalOrder([]);
+    setEditingIndex(null);
+    setEditingValue('');
+    setError(null);
+  }
+
+  async function handleSaveOrderChanges() {
+    setIsSavingOrder(true);
+    setError(null);
+
+    try {
+      // Batch update all items that have changed order_index
+      const updates: Promise<void>[] = [];
+      
+      items.forEach((item, index) => {
+        // Check if order_index needs updating
+        const originalItem = originalOrder.find(
+          orig => orig.type === item.type && orig.data.id === item.data.id
+        );
+        const originalIndex = originalOrder.findIndex(
+          orig => orig.type === item.type && orig.data.id === item.data.id
+        );
+
+        // Update if position changed
+        if (originalIndex !== index) {
+          if (item.type === 'text_section') {
+            updates.push(
+              fetch(`/admin/courses/${courseSlug}/text-sections/${item.data.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_index: index }),
+              }).then(async (res) => {
+                const json = await res.json();
+                if (!res.ok) {
+                  throw new Error(json.error || 'Failed to update section order');
+                }
+              })
+            );
+          } else if (item.type === 'assessment_module') {
+            updates.push(
+              fetch(`/admin/courses/${courseSlug}/assessment-modules/${item.data.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_index: index }),
+              }).then(async (res) => {
+                const json = await res.json();
+                if (!res.ok) {
+                  throw new Error(json.error || 'Failed to update assessment module order');
+                }
+              })
+            );
+          }
+        }
+      });
+
+      await Promise.all(updates);
+      
+      // Exit edit mode and refresh data
+      setIsEditOrderMode(false);
+      setOriginalOrder([]);
+      setEditingIndex(null);
+      setEditingValue('');
+      await loadData();
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || 'Failed to save order changes');
+    } finally {
+      setIsSavingOrder(false);
+    }
+  }
+
   // Get documents for selected text
   const selectedText = texts.find(t => t.id === selectedTextId);
   const availableDocuments = selectedText?.text_documents || [];
@@ -451,18 +765,51 @@ export default function AddTextSection({ courseSlug }: Props) {
         <h3 className="text-lg font-semibold">Sections</h3>
         {!showAddForm && (
           <div className="flex gap-2">
+            {isEditOrderMode ? (
+              <>
+                <button
+                  onClick={handleSaveOrderChanges}
+                  disabled={isSavingOrder}
+                  className="btn-success-sm"
+                >
+                  {isSavingOrder ? 'Saving...' : 'Save New Order'}
+                </button>
+                <button
+                  onClick={handleCancelEditOrder}
+                  disabled={isSavingOrder}
+                  className="btn-outline btn-sm"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
             <button
-              onClick={() => setShowAddForm(true)}
-              className="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+              onClick={() => {
+                setShowAddForm(true);
+                setShowAmAddForm(false);
+              }}
+              disabled={isEditOrderMode}
+              className="btn-primary-sm"
             >
               + Add Text Section
             </button>
-            <Link
-              href={`/admin/assessment-modules/new?course_slug=${courseSlug}`}
-              className="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block"
-            >
-              + Add Assessment Module
-            </Link>
+                <button
+                  type="button"
+                  onClick={() => openAmAddForm()}
+                  disabled={isEditOrderMode}
+                  className="btn-primary-sm"
+                >
+                  + Add Assessment Module
+                </button>
+                <button
+                  onClick={handleStartEditOrder}
+                  className="btn-primary-sm"
+                >
+                  Edit Order
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -471,6 +818,209 @@ export default function AddTextSection({ courseSlug }: Props) {
         <div className="text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200">
           {error}
         </div>
+      )}
+
+      {/* Edit Order Confirmation Modal - native HTML dialog */}
+      <dialog
+        ref={dialogRef}
+        className="mx-auto max-w-md rounded-lg border-0 bg-white p-0 shadow-xl [&::backdrop]:bg-black/50"
+        aria-labelledby="edit-order-modal-title"
+        onCancel={() => setShowEditOrderModal(false)}
+      >
+        <div className="max-h-[85vh] overflow-y-auto p-6">
+          <h3 id="edit-order-modal-title" className="mb-4 text-lg font-semibold">
+            Edit order of Course Sections and Assessment Modules?
+          </h3>
+          <p className="mb-6 text-sm text-gray-600">
+            You&apos;ll be able to reorder sections and assessment modules. Changes will be saved when you click &quot;Save New Order&quot;.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setShowEditOrderModal(false)}
+              className="btn-outline btn-md"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleStartEditOrder}
+              className="btn-primary-md"
+            >
+              Yes
+            </button>
+          </div>
+        </div>
+      </dialog>
+
+      {showAmAddForm && (
+        <form
+          onSubmit={handleSubmitAssessmentModule}
+          className="space-y-3 border-t pt-4"
+        >
+          <h4 className="text-sm font-semibold text-gray-800">
+            Add assessment module to this course
+          </h4>
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-gray-700">Source</div>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="amSource"
+                checked={amSource === 'course'}
+                onChange={() => {
+                  setAmSource('course');
+                  setAmSelectedTemplateId('');
+                }}
+                className="w-4 h-4"
+              />
+              <span>Create course-specific assessment module</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="amSource"
+                checked={amSource === 'template'}
+                onChange={() => setAmSource('template')}
+                className="w-4 h-4"
+              />
+              <span>Start from global assessment module template</span>
+            </label>
+          </div>
+
+          {amSource === 'template' && (
+            <div>
+              <label className="block text-sm font-medium mb-1">Template</label>
+              <select
+                className="w-full border rounded px-3 py-2"
+                value={amSelectedTemplateId}
+                onChange={(e) => setAmSelectedTemplateId(e.target.value)}
+                required
+              >
+                <option value="">— Select a template —</option>
+                {amTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
+              {amTemplates.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  No templates yet. Create one under Assessment Module Templates in the sidebar.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Title *</label>
+            <input
+              type="text"
+              className="w-full border rounded px-3 py-2"
+              value={amTitle}
+              onChange={(e) => setAmTitle(e.target.value)}
+              required
+              disabled={amSubmitting}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Description</label>
+            <textarea
+              className="w-full border rounded px-3 py-2"
+              value={amDescription}
+              onChange={(e) => setAmDescription(e.target.value)}
+              rows={2}
+              disabled={amSubmitting}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Order index</label>
+            <input
+              type="number"
+              className="w-full border rounded px-3 py-2"
+              value={amOrderIndex}
+              onChange={(e) => setAmOrderIndex(Number(e.target.value) || 0)}
+              disabled={amSubmitting}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Question type *</label>
+            <select
+              className="w-full border rounded px-3 py-2"
+              value={amQuestionType}
+              onChange={(e) =>
+                setAmQuestionType(e.target.value as AmQuestionType)
+              }
+              disabled={amSubmitting}
+            >
+              <option value="short_answer">Short answer</option>
+              <option value="definition">Definition</option>
+              <option value="socratic">Socratic</option>
+              <option value="multiple_choice">Multiple choice</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Question count</label>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              className="w-full border rounded px-3 py-2"
+              value={amQuestionCount}
+              onChange={(e) => setAmQuestionCount(Number(e.target.value) || 5)}
+              disabled={amSubmitting}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Difficulty</label>
+            <select
+              className="w-full border rounded px-3 py-2"
+              value={amDifficulty}
+              onChange={(e) =>
+                setAmDifficulty(e.target.value as 'easy' | 'medium' | 'hard')
+              }
+              disabled={amSubmitting}
+            >
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Question generation prompt
+            </label>
+            <textarea
+              className="w-full border rounded px-3 py-2"
+              value={amQuestionPrompt}
+              onChange={(e) => setAmQuestionPrompt(e.target.value)}
+              rows={3}
+              disabled={amSubmitting}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={
+                amSubmitting ||
+                (amSource === 'template' &&
+                  (!amSelectedTemplateId || amTemplates.length === 0))
+              }
+              className="btn-primary-md"
+            >
+              {amSubmitting ? 'Adding…' : 'Add assessment module'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAmAddForm(false);
+                setError(null);
+              }}
+              className="btn-outline btn-md"
+              disabled={amSubmitting}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
 
       {showAddForm && (
@@ -652,7 +1202,7 @@ export default function AddTextSection({ courseSlug }: Props) {
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              className="btn-primary-md"
             >
               {submitting ? 'Adding...' : 'Add Section'}
             </button>
@@ -669,7 +1219,7 @@ export default function AddTextSection({ courseSlug }: Props) {
                 setSectionTitle('');
                 setBlockCount(null);
               }}
-              className="px-4 py-2 border rounded hover:bg-gray-100"
+              className="btn-outline btn-md"
             >
               Cancel
             </button>
@@ -683,38 +1233,43 @@ export default function AddTextSection({ courseSlug }: Props) {
             {items.map((item, index) => (
               <li
                 key={`${item.type}-${item.data.id}`}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, index)}
-                onDragEnd={handleDragEnd}
+                draggable={isEditOrderMode}
+                onDragStart={isEditOrderMode ? (e) => handleDragStart(e, index) : undefined}
+                onDragOver={isEditOrderMode ? (e) => handleDragOver(e, index) : undefined}
+                onDragLeave={isEditOrderMode ? handleDragLeave : undefined}
+                onDrop={isEditOrderMode ? (e) => handleDrop(e, index) : undefined}
+                onDragEnd={isEditOrderMode ? handleDragEnd : undefined}
+                style={item.type === 'assessment_module' && dragOverIndex !== index && draggedIndex !== index 
+                  ? { backgroundColor: '#111827' } // gray-900
+                  : {}}
                 className={`group border rounded p-3 flex items-center gap-3 transition-all duration-150 ${
+                  isEditOrderMode ? '' : ''
+                } ${
                   draggedIndex === index ? 'opacity-30 scale-95' : ''
                 } ${
                   dragOverIndex === index && draggedIndex !== index
-                    ? 'border-blue-500 bg-blue-50 border-2 transform scale-[1.02]'
-                    : draggedIndex !== null && draggedIndex !== index
-                    ? 'hover:bg-gray-50'
-                    : 'hover:bg-gray-50'
+                    ? '!border-blue-500 !bg-blue-50 border-2 transform scale-[1.02]'
+                    : ''
                 }`}
               >
-                <div className="flex-shrink-0 text-gray-400 cursor-grab active:cursor-grabbing">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="9" y1="3" x2="9" y2="21"></line>
-                    <line x1="15" y1="3" x2="15" y2="21"></line>
-                  </svg>
-                </div>
+                {isEditOrderMode && (
+                  <div className="flex-shrink-0 text-gray-400 cursor-grab active:cursor-grabbing">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="9" y1="3" x2="9" y2="21"></line>
+                      <line x1="15" y1="3" x2="15" y2="21"></line>
+                    </svg>
+                  </div>
+                )}
                 <div className="flex-1 space-y-2">
                   {item.type === 'text_section' ? (
                     <>
@@ -726,7 +1281,7 @@ export default function AddTextSection({ courseSlug }: Props) {
                         const filename = section.text_documents.meta?.filename || 'Document';
                         return (
                           <>
-                            <div className="font-medium text-gray-500 group-hover:text-black transition-colors">
+                            <div className="font-medium text-gray-500">
                               {section.title || `${textTitle || 'Untitled'} (${rangeLabel})`}
                             </div>
                             <div className="text-sm text-gray-600">
@@ -766,7 +1321,7 @@ export default function AddTextSection({ courseSlug }: Props) {
                         <button
                           type="button"
                           onClick={() => handleDelete(item.data.id)}
-                          className="text-red-600 hover:underline"
+                          className="btn-link-danger"
                         >
                           Remove Text
                         </button>
@@ -774,7 +1329,7 @@ export default function AddTextSection({ courseSlug }: Props) {
                     </>
                   ) : (
                     <>
-                      <div className="font-medium text-gray-500 group-hover:text-black transition-colors">
+                      <div className="font-medium text-gray-500">
                         {item.data.title}
                       </div>
                       <div className="text-sm text-gray-600">
@@ -791,7 +1346,7 @@ export default function AddTextSection({ courseSlug }: Props) {
                         <button
                           type="button"
                           onClick={() => handleDeleteAssessmentModule(item.data.id)}
-                          className="text-red-600 hover:underline"
+                          className="btn-link-danger"
                         >
                           Remove Assessment Module
                         </button>
@@ -799,12 +1354,38 @@ export default function AddTextSection({ courseSlug }: Props) {
                     </>
                   )}
                 </div>
-                <div
-                  className="flex items-center gap-2 flex-shrink-0 text-gray-400 px-1 select-none leading-none"
-                  style={{ cursor: draggedIndex === index ? 'grabbing' : 'grab', fontSize: '2.3rem' }}
-                  aria-hidden="true"
-                >
-                  ⇕
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {editingIndex === index ? (
+                    <input
+                      type="number"
+                      min="1"
+                      max={items.length}
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onKeyDown={(e) => handleIndexInputKeyDown(e, index)}
+                      onBlur={() => handleIndexInputBlur(index)}
+                      className="w-16 px-2 py-1 text-sm border rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleIndexClick(index)}
+                      className="w-12 px-2 py-1 text-sm text-gray-700 border rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      title={isEditOrderMode ? "Click to edit index" : "Click to edit order"}
+                    >
+                      {index + 1}
+                    </button>
+                  )}
+                  {isEditOrderMode && (
+                    <div
+                      className="flex items-center gap-2 flex-shrink-0 text-white px-1 select-none leading-none"
+                      style={{ cursor: draggedIndex === index ? 'grabbing' : 'grab', fontSize: '2.3rem' }}
+                      aria-hidden="true"
+                    >
+                      ⇕
+                    </div>
+                  )}
                 </div>
               </li>
             ))}

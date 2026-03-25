@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
   if (userErr || !user) return applyCookies(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
 
+  // user_id is optional - kept for audit/historical tracking but not required
   const { data, error } = await supabase
     .from('courses')
     .insert({ user_id: user.id, title, description, status: 'draft' })

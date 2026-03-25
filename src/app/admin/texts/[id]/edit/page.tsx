@@ -6,7 +6,7 @@ import TextEditForm from '@/components/TextEditForm';
 import DisplayPreviewLink from '@/components/DisplayPreviewLink';
 import RagPreviewLink from '@/components/RagPreviewLink';
 import DeleteDocumentButton from '@/components/DeleteDocumentButton';
-import DocumentLineCount from '@/components/DocumentLineCount';
+import DocumentEmbeddedStats from '@/components/DocumentEmbeddedStats';
 import IngestPreviewLink from '@/components/IngestPreviewLink';
 import type { Metadata } from 'next';
 
@@ -96,7 +96,7 @@ export default async function EditText({ params }: { params: Promise<{ id: strin
                     <div className="text-sm opacity-70">
                       Type: {doc.source_type} • Status: {doc.ingest_status}
                       {doc.created_at && ` • Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`}
-                      <DocumentLineCount
+                      <DocumentEmbeddedStats
                         textId={id}
                         documentId={doc.id}
                         ingestStatus={doc.ingest_status}

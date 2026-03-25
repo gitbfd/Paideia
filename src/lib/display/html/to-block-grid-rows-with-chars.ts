@@ -20,56 +20,6 @@ export interface BlockGridRowWithChars extends GridRow {
   endChar?: number;
 }
 
-export function filterBlockRowsByCharRange(
-  rows: BlockGridRowWithChars[],
-  startChar: number,
-  endChar: number
-): BlockGridRowWithChars[] {
-  if (!rows || rows.length === 0) {
-    return [];
-  }
-
-  let firstIndex = -1;
-  let lastIndex = -1;
-
-  rows.forEach((row, index) => {
-    if (row.startChar === undefined || row.endChar === undefined) {
-      return;
-    }
-
-    const overlaps = row.endChar > startChar && row.startChar < endChar;
-    if (overlaps) {
-      if (firstIndex === -1) {
-        firstIndex = index;
-      }
-      lastIndex = index;
-    }
-  });
-
-  if (firstIndex === -1) {
-    return [];
-  }
-
-  // Include any neighboring rows without char metadata that sit between/around the matched range
-  while (firstIndex > 0) {
-    const prevRow = rows[firstIndex - 1];
-    if (prevRow.startChar !== undefined || prevRow.endChar !== undefined) {
-      break;
-    }
-    firstIndex -= 1;
-  }
-
-  while (lastIndex < rows.length - 1) {
-    const nextRow = rows[lastIndex + 1];
-    if (nextRow.startChar !== undefined || nextRow.endChar !== undefined) {
-      break;
-    }
-    lastIndex += 1;
-  }
-
-  return rows.slice(firstIndex, lastIndex + 1);
-}
-
 /**
  * Strips HTML comments except those inside code blocks
  */

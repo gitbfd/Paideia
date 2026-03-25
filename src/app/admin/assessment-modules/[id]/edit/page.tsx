@@ -79,9 +79,21 @@ export default async function EditAssessmentModule({ params }: { params: Promise
     <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Edit Assessment Module: {module.title}</h1>
-        <Link className="text-blue-600 hover:underline" href="/admin/assessment-modules">
-          ← Back to Assessment Modules
-        </Link>
+        {transformedModule.courses?.slug ? (
+          <Link
+            className="text-blue-600 hover:underline"
+            href={`/admin/courses/${transformedModule.courses.slug}/edit`}
+          >
+            ← Back to course
+          </Link>
+        ) : (
+          <Link
+            className="text-blue-600 hover:underline"
+            href="/admin/assessment-module-templates"
+          >
+            ← Back to templates
+          </Link>
+        )}
       </div>
 
       <AssessmentModuleEditForm module={transformedModule} />

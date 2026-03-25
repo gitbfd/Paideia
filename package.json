@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "backfill:display-grid-rows": "tsx scripts/backfill-display-grid-rows.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.36.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.76.1",
     "canvas": "^3.2.0",
@@ -19,6 +21,8 @@
     "react-dom": "^19.2.3"
   },
   "devDependencies": {
+    "dotenv": "^16.4.0",
+    "tsx": "^4.19.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.23",
     "@types/react": "^19",

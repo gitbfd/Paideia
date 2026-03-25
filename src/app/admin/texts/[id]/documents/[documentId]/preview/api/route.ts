@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClientForRoute } from '@/lib/supabase/route';
 import { convertTextToHtml } from '@/lib/shared';
-import { getWrappedHtmlBlockCount } from '@/lib/display/html';
 
 // GET /admin/texts/:id/documents/:documentId/preview/api
 // Returns the display_content field which contains the full readable text (not RAG chunks)
@@ -55,10 +54,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     htmlContent = await convertTextToHtml(reconstructedText, sourceType);
   }
 
-  // Count blocks in the HTML content (approximate - based on block elements)
-  // Text wraps naturally with CSS, so this is an approximation
-  const lineCount = getWrappedHtmlBlockCount(htmlContent);
-  
   // Get character count from rag_text (cleaned text source of truth) if available
   const ragTextCharCount = document.rag_text ? document.rag_text.length : null;
 
@@ -80,7 +75,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ragText: document.rag_text || null, // Include rag_text for processing
     characterCount: htmlContent.length,
     ragTextCharCount: ragTextCharCount, // Character count of cleaned text (for character-based selection)
-    lineCount: lineCount,
     blockCount: blockCount // Block count for block-based selection
   }, { status: 200 }));
 }

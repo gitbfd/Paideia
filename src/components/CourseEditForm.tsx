@@ -19,6 +19,15 @@ export default function CourseEditForm({ course }: Props) {
   const [status, setStatus] = useState(course.status);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  function handleCancel() {
+    setTitle(course.title);
+    setDescription(course.description || '');
+    setStatus(course.status);
+    setMessage(null);
+    setIsEditMode(false);
+  }
 
   async function updateCourse() {
     setSaving(true);
@@ -39,7 +48,7 @@ export default function CourseEditForm({ course }: Props) {
       }
 
       setMessage({ type: 'success', text: 'Course updated successfully!' });
-      // Optionally reload the page to show updated data
+      setIsEditMode(false);
       setTimeout(() => {
         window.location.reload();
       }, 1000);
@@ -52,39 +61,47 @@ export default function CourseEditForm({ course }: Props) {
 
   return (
     <div className="border rounded p-4 space-y-4 max-w-xl">
-      <h2 className="text-lg font-semibold">Edit Course Details</h2>
-      
+      <h2 className="text-lg font-semibold">Course Details</h2>
+
       <div>
         <label className="block text-sm font-medium mb-1">Title</label>
         <input
-          className="border p-2 w-full rounded"
+          className="border p-2 w-full rounded read-only:bg-transparent read-only:border-gray-200"
           placeholder="Course Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          readOnly={!isEditMode}
         />
       </div>
 
       <div>
         <label className="block text-sm font-medium mb-1">Description</label>
         <textarea
-          className="border p-2 w-full rounded"
+          className="border p-2 w-full rounded read-only:bg-transparent read-only:border-gray-200"
           placeholder="Course Description"
           rows={4}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          readOnly={!isEditMode}
         />
       </div>
 
       <div>
         <label className="block text-sm font-medium mb-1">Status</label>
-        <select
-          className="border p-2 w-full rounded"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
-        </select>
+        {isEditMode ? (
+          <select
+            className="border p-2 w-full rounded"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+          </select>
+        ) : (
+          <div className="border border-gray-200 p-2 rounded bg-transparent">
+            {status === 'draft' ? 'Draft' : 'Published'}
+          </div>
+        )}
       </div>
 
       {message && (
@@ -95,13 +112,33 @@ export default function CourseEditForm({ course }: Props) {
         </div>
       )}
 
-      <button
-        className="border px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-        onClick={updateCourse}
-        disabled={saving}
-      >
-        {saving ? 'Saving...' : 'Save Changes'}
-      </button>
+      <div className="flex gap-2">
+        {isEditMode ? (
+          <>
+            <button
+              className="btn-primary-md"
+              onClick={updateCourse}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              className="btn-outline btn-md"
+              onClick={handleCancel}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button
+            className="btn-primary-md"
+            onClick={() => setIsEditMode(true)}
+          >
+            Edit Details
+          </button>
+        )}
+      </div>
     </div>
   );
 }

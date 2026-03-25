@@ -1,0 +1,35 @@
+---
+description: Use correct timestamp when creating SQL migration files
+alwaysApply: true
+---
+
+# SQL Migration File Naming
+
+When creating a new SQL migration file in `supabase/migrations/`, the filename must use the **actual current date and time**, not a placeholder or guess.
+
+## Format
+
+```
+YYYYMMDD_HHMM--kebab-case-description.sql
+```
+
+Example: `20260313_0854--decoupleCoursesFromUsers.sql`
+
+## Required Step
+
+**Before creating the file**, run this command to get the correct timestamp:
+
+```bash
+date +%Y%m%d_%H%M
+```
+
+Use the **exact output** in the filename. Do not invent or guess the timestamp.
+
+## Example
+
+If the command returns `20260313_0854`, create:
+```
+20260313_0854--addNewFeature.sql
+```
+
+Not `20260301_1200` or any other fabricated value.

@@ -4,25 +4,29 @@ import { notFound } from 'next/navigation';
 
 import '@/styles/text-preview.css';
 import LineNumberedContent from '@/components/LineNumberedContent';
-import {
-  htmlToGridRows,
-  extractGridRowRange,
-  filterBlockRowsByCharRange,
-  htmlToBlockGridRowsWithChars,
-  type GridRow,
-  type BlockGridRowWithChars,
-} from '@/lib/display/html';
+import { htmlToBlockGridRowsWithChars, type GridRow } from '@/lib/display/html';
 import { createClientServer } from '@/lib/supabase/server';
 
 function formatRange(section: {
-  start_char: number | null;
-  end_char: number | null;
-  start_line: number | null;
-  end_line: number | null;
+  start_block?: number | null;
+  end_block?: number | null;
+  start_char?: number | null;
+  end_char?: number | null;
+  start_line?: number | null;
+  end_line?: number | null;
 }) {
   if (
-    section.start_char !== null &&
-    section.end_char !== null &&
+    section.start_block != null &&
+    section.end_block != null &&
+    section.start_block >= 1 &&
+    section.end_block >= section.start_block
+  ) {
+    return `Blocks ${section.start_block}-${section.end_block}`;
+  }
+
+  if (
+    section.start_char != null &&
+    section.end_char != null &&
     section.start_char >= 0 &&
     section.end_char > section.start_char
   ) {
@@ -30,8 +34,8 @@ function formatRange(section: {
   }
 
   if (
-    section.start_line !== null &&
-    section.end_line !== null &&
+    section.start_line != null &&
+    section.end_line != null &&
     section.start_line > 0 &&
     section.end_line >= section.start_line
   ) {
@@ -97,10 +101,8 @@ export default async function SectionDisplayPreviewPage({
       `
         id,
         title,
-        start_char,
-        end_char,
-        start_line,
-        end_line,
+        start_block,
+        end_block,
         text_document_id,
         text_documents (
           id,
@@ -131,45 +133,22 @@ export default async function SectionDisplayPreviewPage({
   const ragText: string | null = textDoc?.rag_text ?? null;
 
   let gridRows: GridRow[] | null = null;
-  let extractionWarning: string | null = null;
 
   if (displayContent) {
-    const allBlockRows: BlockGridRowWithChars[] = htmlToBlockGridRowsWithChars(
-      displayContent,
-      ragText || undefined
-    );
-
-    const hasCharRange =
-      ragText &&
-      section.start_char !== null &&
-      section.end_char !== null &&
-      section.start_char >= 0 &&
-      section.end_char > section.start_char;
-
-    if (hasCharRange) {
-      const subset = filterBlockRowsByCharRange(
-        allBlockRows,
-        section.start_char!,
-        section.end_char!
-      );
-
-      if (subset.length > 0) {
-        gridRows = subset;
-      } else {
-        extractionWarning =
-          'Could not match the selected character range to block rows. Showing best-available content.';
-      }
-    }
+    // Admin keeps rag_text for full HTML comments (block:N chars:X-Y)
+    const allBlockRows = htmlToBlockGridRowsWithChars(displayContent, ragText ?? undefined);
+    const startBlock = section.start_block;
+    const endBlock = section.end_block;
 
     if (
-      (!gridRows || gridRows.length === 0) &&
-      section.start_line !== null &&
-      section.end_line !== null &&
-      section.start_line > 0 &&
-      section.end_line >= section.start_line
+      typeof startBlock === 'number' &&
+      typeof endBlock === 'number' &&
+      startBlock >= 1 &&
+      endBlock >= startBlock
     ) {
-      const allRows = htmlToGridRows(displayContent, 1);
-      gridRows = extractGridRowRange(allRows, section.start_line, section.end_line);
+      const startIdx = startBlock - 1;
+      const endIdx = Math.min(endBlock, allBlockRows.length);
+      gridRows = allBlockRows.slice(startIdx, endIdx);
     }
 
     if (!gridRows || gridRows.length === 0) {
@@ -201,12 +180,6 @@ export default async function SectionDisplayPreviewPage({
       </div>
 
       <div className="max-w-6xl mx-auto p-6 space-y-4">
-        {extractionWarning && (
-          <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded">
-            {extractionWarning}
-          </div>
-        )}
-
         {!displayContent && (
           <div className="bg-white border rounded p-6 text-gray-600">
             Display content is not available for this section. Please re-ingest the document.

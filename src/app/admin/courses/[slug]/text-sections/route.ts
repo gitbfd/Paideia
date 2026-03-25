@@ -1,5 +1,6 @@
 // src/app/admin/courses/[slug]/text-sections/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createClientForRoute } from '@/lib/supabase/route';
 
 // GET /admin/courses/:slug/text-sections
@@ -162,6 +163,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return applyCookies(NextResponse.json({ error: error.message }, { status: 400 }));
   }
 
+  revalidateTag(`course-${course.id}`, 'max');
+  revalidateTag(`course-slug-${slug}`, 'max');
+  revalidatePath(`/courses/${slug}`);
   return applyCookies(NextResponse.json({ success: true, section: data }, { status: 201 }));
 }
 

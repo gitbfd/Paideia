@@ -33,10 +33,10 @@ export default async function Home() {
       <h1 className="text-3xl font-bold">Welcome</h1>
 
       <div className="mt-8 grid gap-4 sm:flex">
-        <Link href="/auth/signup" className="inline-block rounded border px-4 py-2 text-center">
+        <Link href="/auth/signup" className="btn-outline btn-md inline-block text-center">
           Create Account (new student)
         </Link>
-        <Link href="/auth/login" className="inline-block rounded border px-4 py-2 text-center">
+        <Link href="/auth/login" className="btn-outline btn-md inline-block text-center">
           Login to My Account
         </Link>
       </div>

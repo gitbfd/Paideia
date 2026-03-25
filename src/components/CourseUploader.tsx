@@ -184,7 +184,7 @@ export default function CourseUploader({ courseId, courseSlug }: Props) {
       </div>
       <button 
         type="button"
-        className="border px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" 
+        className="btn-primary-sm" 
         onClick={handleUpload}
         disabled={uploading}
       >

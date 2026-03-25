@@ -17,15 +17,15 @@ export default function TopRightActions() {
   return (
     <div className="absolute top-4 right-4 flex gap-3">
       <Link
-        href="/auth/update-password"
-        className="px-4 py-2 rounded-xl border text-sm hover:bg-gray-900"
+        href="/student/manage-account"
+        className="btn-outline btn-sm"
       >
         Manage Account
       </Link>
 
       <button
         onClick={handleLogout}
-        className="px-4 py-2 rounded-xl bg-black text-white text-sm hover:bg-gray-900"
+        className="btn-black-sm"
       >
         Log Out
       </button>

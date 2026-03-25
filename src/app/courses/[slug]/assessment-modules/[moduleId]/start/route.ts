@@ -34,8 +34,16 @@ export async function POST(
     return applyCookies(NextResponse.json({ error: 'Course not found' }, { status: 404 }));
   }
 
-  // Verify course is published
-  if (course.status !== 'published') {
+  const { data: isAdmin, error: adminRpcError } = await supabase.rpc('is_admin');
+  if (adminRpcError) {
+    console.error('[Assessment Start] is_admin error:', adminRpcError);
+    return applyCookies(
+      NextResponse.json({ error: 'Unable to verify permissions' }, { status: 500 })
+    );
+  }
+
+  // Students: published courses only. Admins may preview draft or published.
+  if (!isAdmin && course.status !== 'published') {
     return applyCookies(
       NextResponse.json({ error: 'Course is not published' }, { status: 403 })
     );
@@ -55,18 +63,20 @@ export async function POST(
     );
   }
 
-  // Check if user is enrolled
-  const { data: enrollment } = await supabase
-    .from('course_enrollments')
-    .select('user_id')
-    .eq('course_id', course.id)
-    .eq('user_id', user.id)
-    .single();
+  // Students must be enrolled; admins may test without enrollment
+  if (!isAdmin) {
+    const { data: enrollment } = await supabase
+      .from('course_enrollments')
+      .select('user_id')
+      .eq('course_id', course.id)
+      .eq('user_id', user.id)
+      .single();
 
-  if (!enrollment) {
-    return applyCookies(
-      NextResponse.json({ error: 'You must be enrolled in this course' }, { status: 403 })
-    );
+    if (!enrollment) {
+      return applyCookies(
+        NextResponse.json({ error: 'You must be enrolled in this course' }, { status: 403 })
+      );
+    }
   }
 
   // Check for existing in-progress session with questions

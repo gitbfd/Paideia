@@ -1,11 +1,11 @@
-// src/middleware.ts
+// src/proxy.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions, type CookieMethodsServer } from '@supabase/ssr';
 
 export const config = { matcher: ['/admin/:path*', '/student/:path*'] };
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const res = NextResponse.next();
   const { pathname } = req.nextUrl;
 

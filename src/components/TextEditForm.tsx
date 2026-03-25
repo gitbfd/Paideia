@@ -124,7 +124,7 @@ export default function TextEditForm({ text }: Props) {
       </div>
       <button
         type="button"
-        className="border px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="btn-success-md"
         onClick={handleSave}
         disabled={saving}
       >
